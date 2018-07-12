@@ -1,0 +1,80 @@
+-- Copyright 2018 Google LLC
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--      http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+{-
+
+data List a = Nil () | Cons(a, (List a))
+data Term = Term(Cons, (List Term))
+data Cons = Z() | S() | Plus()
+data Maybe a = Nothing() | Just a
+
+type Strat a = (Term, Term -> a, Int -> a) -> a
+
+-}
+
+-- id :: Strat a
+id (t, sk, fk) = sk t;
+
+-- choice :: (Strat a, Strat a) -> Strat a
+choice (s1, s2) (t, sk, fk) = s1 (t, sk, \u -> s2 (t, sk, fk));
+
+-- seq :: (Strat a, Strat a) -> Strat a
+seq (s1, s2) (t, sk, fk) = s1 (t, (\t' -> s2 (t', sk, fk)), fk);
+
+-- all :: Strat a -> Strat a
+all s (Term(f, ts), sk, fk) = all' (s, ts, (\ts' -> sk (Term(f, ts'))), fk);
+
+-- all' :: (Strat a, List Term, List Term -> a, Int -> a) -> a
+all' (s, ts, sk, fk) =
+  match ts with
+  | Nil() -> sk (Nil())
+  | Cons(t, ts1) ->
+      s (t, \t' -> all' (s, ts1, \ts' -> sk (Cons(t', ts')), fk), fk)
+  end;
+
+-- try :: Strat a -> Strat a
+try s = choice (s, id);
+
+-- topDown :: Strat a -> Strat a
+topDown s = seq (s, all (\a -> topDown s a));
+
+--repeat :: Strat a -> Strat a
+repeat s = choice (seq (s, \a -> repeat s a),  id);
+
+--one :: Strat a -> Strat a
+one s (Term(f, ts), sk, fk) = one' (s, ts, \ts' -> sk (Term(f, ts')), fk);
+
+--one' :: (Strat a, List Term, List Term -> a, Int -> a) -> a
+one' (s, ts, sk, fk) =
+  match ts with
+  | Nil() -> fk 0
+  | Cons(t, ts) ->
+      s (t, \t' -> sk (Cons (t', ts)), \u -> one' (s, ts, sk, fk))
+  end;
+
+--onceTopDown :: Strat a -> Strat a
+onceTopDown s = choice (s, one (\a -> onceTopDown s a));
+
+--outerMost :: Strat a -> Strat a
+outerMost s = repeat (onceTopDown s);
+
+rs (t, sk, fk) =
+  match t with
+  | Term(Plus(), Cons(Term(Z(), Nil()), Cons(m, Nil()))) -> sk m
+  | Term(Plus(), Cons(Term(S(), Cons(n, Nil())), Cons(m, Nil()))) ->
+      sk (Term(S(), Cons(Term(Plus(), Cons(n, Cons(m, Nil()))), Nil())))
+  | t1 -> fk 0
+  end;
+
+topDown rs (Term(Z(), []), \x -> Just(x), \u -> Nothing())
