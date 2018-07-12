@@ -43,9 +43,6 @@ serious (Match _ _) = True
 serious (Cons _ ts) = any serious ts
 serious _ = False
 
-cons (Cons _ _) = True
-cons _ = False
-
 comps :: Fresh m => Term -> m ([(Name Term, Term)], Term)
 comps t
   | (Cons c us) <- t = do
