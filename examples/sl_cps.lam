@@ -71,9 +71,8 @@ outerMost s = repeat (onceTopDown s);
 
 rs (t, sk, fk) =
   match t with
-  | Term(Plus(), Cons(Term(Z(), Nil()), Cons(m, Nil()))) -> sk m
-  | Term(Plus(), Cons(Term(S(), Cons(n, Nil())), Cons(m, Nil()))) ->
-      sk (Term(S(), Cons(Term(Plus(), Cons(n, Cons(m, Nil()))), Nil())))
+  | Term(Plus(), [Term(Z(), []), m]) -> sk m
+  | Term(Plus(), [Term(S(), [n]), m]) -> sk Term(S(), [Term(Plus(), [n, m])])
   | t1 -> fk 0
   end;
 

@@ -68,7 +68,7 @@ evalTerm (Var x) = do
   case M.lookup x env of
     Just v -> return v
     Nothing ->
-      throwError $ "cannot find " ++ show x ++ " in " ++ show (M.keys env)
+      throwError ("cannot find " ++ show x ++ " in " ++ show (M.keys env))
 evalTerm t@(Lam b) = do
   env <- ask
   return (VClosure t env)

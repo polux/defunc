@@ -48,20 +48,19 @@ parens = between s_lparen s_rparen
 
 squares = between (symbol "[") (symbol "]")
 
+idTail = many (alphaNumChar <|> char '_' <|> char '\'')
+
 identifier = (lexeme . try) (p >>= check)
  where
-  p = (:) <$> (lowerChar <|> char '_') <*> many
-    (alphaNumChar <|> char '_' <|> char '\'')
+  p = (:) <$> (lowerChar <|> char '_') <*> idTail
   check x = if x `elem` ["in", "let", "match", "with", "end"]
     then fail $ "keyword " ++ show x ++ " cannot be an identifier"
     else return x
 
 constructor = lexeme (try p)
- where
-  p = (:) <$> (upperChar <|> char '_') <*> many
-    (alphaNumChar <|> char '_' <|> char '\'')
+  where p = (:) <$> (upperChar <|> char '_') <*> idTail
 
-lterm = foldl1 App <$> (some atom)
+lterm = foldl1 App <$> some atom
 
 atom =
   (svar <$> identifier)
@@ -92,8 +91,9 @@ constructorApp = Cons <$> constructor <*> parens (lterm `sepBy` s_comma)
 lambda = mkLam <$> s_lambda <*> some pattern <*> s_dot <*> lterm
   where mkLam _ ids _ t = foldr plam t ids
 
-letIn = mkLet <$> s_let <*> sepBy binding s_semi <*> s_in <*> lterm
-  where mkLet _ bindings _ t = foldr (\(x, u) v -> Let (bind x v) u) t bindings
+letIn = mkLets <$> s_let <*> sepBy binding s_semi <*> s_in <*> lterm
+  where mkLets _ bindings _ t = foldr mkLet t bindings
+        mkLet (x, u) v = Let (bind x v) u
 
 binding = mkBinding <$> pattern <*> s_equals <*> lterm
   where mkBinding p _ t = (p, t)
@@ -116,7 +116,9 @@ patternApp = mkCons <$> optional constructor <*> parens (pattern `sepBy` s_comma
   mkCons (Just c) ps = PCons c ps
 
 patternList = mkList <$> squares (pattern `sepBy` s_comma)
-  where mkList xs = foldr (\x y -> PCons "Cons" [x, y]) (PCons "Nil" []) xs
+  where mkList xs = foldr mkCons mkNil xs
+        mkCons x y = PCons "Cons" [x, y]
+        mkNil = PCons "Nil" []
 
 match = mkMatch <$> s_match <*> lterm <*> s_with <*> many rule <*> s_end
   where mkMatch _ t _ rs _ = Match t rs
