@@ -1,0 +1,25 @@
+step(t) =
+  match t with
+  | Var(x) -> Stuck()
+  | Lam(x, t) -> Stuck()
+  | App(Lam(x, t), u) ->
+      match IsValue(u) with
+      | True() -> Progress(Subst(x, u, t))
+      | False() ->
+          match step(u) with
+          | Stuck() -> Stuck()
+          | Progress(u') -> Progress(Lam(x, t), u')
+          end
+      end
+  | App(t, u) ->
+      match step(t) with
+      | Stuck() -> Stuck()
+      | Progress(t') -> Progress(App(t', u))
+      end
+  end;
+
+step(App(Lam(1, App(Var(1), Var(1))), Lam(1, App(Var(1), Var(1)))))
+
+
+
+
