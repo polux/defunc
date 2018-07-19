@@ -19,10 +19,12 @@ module AST where
 
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
+import qualified Data.Map as M
 import Unbound.Generics.LocallyNameless
   ( Subst(..)
   , Alpha
   , Bind
+  , Embed
   , Name
   , SubstName(..)
   , bind
@@ -79,3 +81,13 @@ pair x y = Cons "" [x, y]
 ppair x y = PCons "" [x, y]
 tuple xs = foldl1 pair xs
 ptuple xs = foldl1 ppair xs
+
+type Env = [(Name Term, Embed Val)]
+
+data Val
+  = VInt Int
+  | VCons String [Val]
+  | VClosure (Bind Env Term)
+  deriving (Show, Generic, Typeable)
+
+instance Alpha Val

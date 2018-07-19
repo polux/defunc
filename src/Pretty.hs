@@ -19,7 +19,8 @@ module Pretty () where
 import AST
 import qualified Data.Text.Prettyprint.Doc as D
 import qualified Data.Text.Prettyprint.Doc as D
-import Unbound.Generics.LocallyNameless (LFresh, lunbind, runLFreshM)
+import qualified Data.Map as M
+import Unbound.Generics.LocallyNameless (LFresh, lunbind, runLFreshM, unembed)
 import Control.Monad (zipWithM)
 
 prettyPattern :: LFresh m => Pattern -> m (D.Doc a)
@@ -138,4 +139,30 @@ prettyTerm par t = prettyApps par (apps t)
 
 instance D.Pretty Term where
   pretty t = runLFreshM (prettyTerm False t)
+
+prettyVal :: LFresh m => Val -> m (D.Doc a)
+prettyVal t@(VCons "" _) = do
+  ts' <- mapM prettyVal (peel t)
+  return $ D.align (D.tupled ts')
+ where
+  peel (VCons "" [t1, t2]) = peel t1 ++ [t2]
+  peel t = [t]
+prettyVal (VCons c ts) = do
+  ts' <- traverse prettyVal ts
+  return $ D.pretty c <> D.align (D.tupled ts')
+prettyVal (VInt i) = return (D.viaShow i)
+prettyVal (VClosure b) =
+  lunbind b $ \(env, t) -> do
+    t' <- prettyTerm False t
+    return $ D.encloseSep (D.flatAlt "< " "<")
+                          (D.flatAlt " >" ">")
+                          (D.flatAlt "," ", ")
+                          [t', prettyEnv env]
+
+prettyEnv :: Env -> D.Doc a
+prettyEnv env =
+  D.list [ D.tupled [D.viaShow x, D.pretty (unembed v)] | (x, v) <- env ]
+
+instance D.Pretty Val where
+  pretty t = runLFreshM (prettyVal t)
 

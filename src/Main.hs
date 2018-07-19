@@ -51,7 +51,9 @@ evalAndPrintValue :: FunDefs -> IO ()
 evalAndPrintValue defs = do
   case eval defs of
     Left e -> putStrLn e
-    Right v -> pPrint v
+    Right v -> do
+      putDoc (pretty v)
+      putStrLn ""
 
 main = do
   args <- getArgs

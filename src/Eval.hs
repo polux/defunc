@@ -19,24 +19,16 @@ module Eval(Val(..), eval) where
 
 import AST
 import Unbound.Generics.LocallyNameless
-import qualified Data.Map as M
 import Control.Monad.Except
 import Control.Monad.Reader
-
-data Val
-  = VInt Int
-  | VCons String [Val]
-  | VClosure Term Env
-  deriving Show
-
-type Env = M.Map (Name Term) Val
+import qualified Data.Map as M
 
 eval :: FunDefs -> Either String Val
 eval (FunDefs b) = runFreshM . runExceptT $ mdo
   (fs, (ts, t)) <- unbind b
   env <- do
     tsv <- mapM (evalTermWith env) ts
-    return $ M.fromList (zip fs tsv)
+    return $ (zip fs (map embed tsv))
   evalTermWith env t
 
 match :: MonadError String m => Pattern -> Val -> m Env
@@ -47,12 +39,12 @@ match p v =
 
 match' :: Pattern -> Val -> Maybe Env
 match' (PCons c ps) (VCons c' vs)
-  | c == c' = M.unions <$> zipWithM match' ps vs
+  | c == c' = concat <$> zipWithM match' ps vs
   | otherwise = Nothing
 match' (PLit i) (VInt j)
-  | i == j = Just M.empty
+  | i == j = Just []
   | otherwise = Nothing
-match' (PVar x) v = Just (M.singleton x v)
+match' (PVar x) v = Just [(x, embed v)]
 match' _ _ = Nothing
 
 evalTermWith :: (Fresh m, MonadError String m) => Env -> Term -> m Val
@@ -65,27 +57,28 @@ evalTerm (Cons c ts) = do
   return (VCons c vts)
 evalTerm (Var x) = do
   env <- ask
-  case M.lookup x env of
-    Just v -> return v
+  case lookup x env of
+    Just v -> return (unembed v)
     Nothing ->
-      throwError ("cannot find " ++ show x ++ " in " ++ show (M.keys env))
+      throwError ("cannot find " ++ show x ++ " in " ++ show (map fst env))
 evalTerm t@(Lam b) = do
   env <- ask
-  return (VClosure t env)
+  return (VClosure (bind env t))
 evalTerm (App f t) = do
   vf <- evalTerm f
   vt <- evalTerm t
   case vf of
-    VClosure (Lam b) env -> do
-      (p, u) <- unbind b
+    VClosure b -> do
+      (env, Lam b') <- unbind b
+      (p, u) <- unbind b'
       env' <- match p vt
-      local (const (M.union env env')) (evalTerm u)
+      local (const (env' ++ env)) (evalTerm u)
     _ -> throwError ("cannot apply " ++ show vf ++ " to " ++ show vt)
 evalTerm (Let b t) = do
   (p, u) <- unbind b
   vt <- evalTerm t
   env <- match p vt
-  local (M.union env) (evalTerm u)
+  local (env++) (evalTerm u)
 evalTerm (Match t rs) = do
   vt <- evalTerm t
   vs <- mapM (evalRule vt) rs
@@ -101,6 +94,6 @@ evalRule
 evalRule v (Rule b) = do
   (p, t) <- unbind b
   case match' p v of
-    Just env -> Just <$> local (M.union env) (evalTerm t)
+    Just env -> Just <$> local (env++) (evalTerm t)
     Nothing -> return Nothing
 
