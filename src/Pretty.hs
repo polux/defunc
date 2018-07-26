@@ -141,6 +141,13 @@ instance D.Pretty Term where
   pretty t = runLFreshM (prettyTerm False t)
 
 prettyVal :: LFresh m => Val -> m (D.Doc a)
+prettyVal t | Just ts <- asList t = do
+  ts' <- mapM prettyVal ts
+  return $ D.list ts'
+ where
+  asList (VCons "Nil" []) = Just []
+  asList (VCons "Cons" [x, y]) = (x:) <$> asList y
+  asList _ = Nothing
 prettyVal t@(VCons "" _) = do
   ts' <- mapM prettyVal (peel t)
   return $ D.align (D.tupled ts')
