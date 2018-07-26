@@ -20,6 +20,7 @@ module AST where
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import qualified Data.Map as M
+import Data.List (foldl')
 import Unbound.Generics.LocallyNameless
   ( Subst(..)
   , Alpha
@@ -76,6 +77,13 @@ pvar = PVar . string2Name
 
 infixl @:
 t @: u = App t u
+
+app :: Term -> [Term] -> Term
+app t ts = foldl' App t ts
+
+unApp :: Term -> (Term, [Term])
+unApp (App t u) = let (t', ts) = unApp t in (t', ts++[u])
+unApp t = (t, [])
 
 pair x y = Cons "" [x, y]
 ppair x y = PCons "" [x, y]

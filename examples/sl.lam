@@ -56,8 +56,12 @@ topDown s t = seq(s, all (topDown s)) t;
 rs t =
   match t with
   | Term(Plus(), [Term(Z(), []), m]) -> Just(m)
-  | Term(Plus(), [Term(S(), [n]), m]) -> Just(Term(S(), [Term(Plus(), [n, m])]))
-  | t -> Nothing()
+  | Term(Plus(), [Term(S(), [n]), m]) -> Just(s (plus n m))
+  | t -> Just(t)
   end;
 
-topDown rs Term(Z())
+z = Term(Z(), []);
+s n = Term(S(), [n]);
+plus n m  = Term(Plus(), [n, m]);
+
+topDown rs (plus (s (s z)) (s z))

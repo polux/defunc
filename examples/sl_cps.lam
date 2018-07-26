@@ -76,4 +76,8 @@ rs (t, sk, fk) =
   | t1 -> fk 0
   end;
 
-topDown rs (Term(Z(), []), \x -> Just(x), \u -> Nothing())
+z = Term(Z(), []);
+s n = Term(S(), [n]);
+plus n m = Term(Plus(), [n, m]);
+
+outerMost rs (plus (s (s z)) (s z), \x -> Just(x), \u -> Nothing())
