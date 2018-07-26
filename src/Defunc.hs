@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Defunc (defunctionalize) where
@@ -25,6 +26,9 @@ import qualified Data.Set as S
 import qualified Unbound.Generics.LocallyNameless.Internal.Fold as U
 import qualified Data.Map as M
 import Unbound.Generics.LocallyNameless.Unsafe (unsafeUnbind)
+import Data.Typeable (Typeable)
+import GHC.Generics (Generic)
+import Safe (maximumDef)
 
 fixM f t = do
   t' <- f t
@@ -40,7 +44,7 @@ defunctionalize (FunDefs b) =
     let step (u:us) = mapM (saturate (arities (zip fs us))) (u:us)
     (t':ts') <- fixM step (t:ts)
     (t'':ts'', rules) <- defunc (arities (zip fs ts')) a (t':ts')
-    at <- mkApply rules
+    at <- mkApply (S.toList rules)
     return $ FunDefs (bind (a:fs) (at:ts'', t''))
  where
   mkApply rules = do
@@ -88,21 +92,38 @@ saturate fs t = go t
       t' <- go t
       return (Rule (bind p t))
 
+data PreRule = PreRule (Bind ([Name Term], Pattern) Term)
+  deriving (Show, Generic, Typeable)
 
-defunc :: Fresh m => Arities -> Name Term -> [Term] -> m ([Term], Rules)
-defunc fs a ts = evalStateT (runWriterT (mapM (defuncFun fs a) ts)) 0
+instance Alpha PreRule
 
-freshConstructorName :: MonadState Int m => m String
-freshConstructorName = do
-  n <- get
-  put (n+1)
-  return $ "Clos" ++ show n
+instance Eq PreRule where
+  (==) = aeq
+
+instance Ord PreRule where
+  compare = acompare
+
+type PreRules = M.Map PreRule Int
+
+defunc :: Fresh m => Arities -> Name Term -> [Term] -> m ([Term], S.Set Rule)
+defunc fs a ts = evalStateT (runWriterT (mapM (defuncFun fs a) ts)) M.empty
+
+getConstructorName :: MonadState PreRules m => PreRule -> m String
+getConstructorName pr = fmap mkName $ do
+  prs <- get
+  case M.lookup pr prs of
+    Just n -> return n
+    Nothing -> do
+      let n = maximumDef 0 (M.elems prs) + 1
+      put (M.insert pr n prs)
+      return n
+  where mkName n = "Clos" ++ show n
 
 freeNames :: Term -> [Name Term]
 freeNames t = S.toList (S.fromList (U.toListOf fv t))
 
 defuncFun
-  :: (Fresh m, MonadState Int m, MonadWriter Rules m)
+  :: (Fresh m, MonadState PreRules m, MonadWriter (S.Set Rule) m)
   => Arities
   -> Name Term
   -> Term
@@ -114,7 +135,7 @@ defuncFun fs a (Lam b) = do
 defuncFun fs a t  = defuncTerm fs a t
 
 defuncTerm
-  :: (Fresh m, MonadState Int m, MonadWriter Rules m)
+  :: (Fresh m, MonadState PreRules m, MonadWriter (S.Set Rule) m)
   => Arities
   -> Name Term
   -> Term
@@ -136,11 +157,12 @@ defuncTerm fs apply term = go term
     return $ mkApply t0' t1'
   go t@(Lam b) = do
     (p, e) <- unbind b
-    c <- freshConstructorName
     e' <- go e
     let fns = freeNames t \\ M.keys fs
+    let pr = PreRule (bind (fns, p) e')
+    c <- getConstructorName pr
     let pclos = PCons c (map PVar fns)
-    tell [Rule $ bind (ppair pclos p) e']
+    tell (S.singleton (Rule $ bind (ppair pclos p) e'))
     return $ Cons c (map Var fns)
   go (Let b t) = do
     (p, u) <- unbind b

@@ -28,6 +28,8 @@ import Unbound.Generics.LocallyNameless
   , Embed
   , Name
   , SubstName(..)
+  , aeq
+  , acompare
   , bind
   , string2Name)
 
@@ -44,6 +46,12 @@ type Rules = [Rule]
 
 data Rule = Rule (Bind Pattern Term)
   deriving (Show, Generic, Typeable)
+
+instance Eq Rule where
+  (==) = aeq
+
+instance Ord Rule where
+  compare = acompare
 
 data Term
   = Var (Name Term)
@@ -68,6 +76,12 @@ instance Subst Term Rule where
 
 instance Subst Term Pattern where
   isvar _ = Nothing
+
+instance Eq Term where
+  (==) = aeq
+
+instance Ord Term where
+  compare = acompare
 
 plam p t = Lam (bind p t)
 lam x t = Lam (bind (PVar x) t)
