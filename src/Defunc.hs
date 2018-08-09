@@ -40,16 +40,17 @@ defunctionalize :: FunDefs -> FunDefs
 defunctionalize (FunDefs b) =
   runFreshM $ do
     (fs, (ts, t)) <- unbind b
-    a <- fresh (string2Name "apply")
+    apply <- fresh (string2Name "apply")
+    arg <- fresh (string2Name "x")
     let step (u:us) = mapM (saturate (arities (zip fs us))) (u:us)
     (t':ts') <- fixM step (t:ts)
-    (t'':ts'', rules) <- defunc (arities (zip fs ts')) a (t':ts')
-    at <- mkApply (S.toList rules)
-    return $ FunDefs (bind (a:fs) (at:ts'', t''))
+    (t'':ts'', rules) <- defunc (arities (zip fs ts')) apply arg (t':ts')
+    at <- mkApply arg (S.toList rules)
+    return $ FunDefs (bind (apply:fs) (at:ts'', t''))
  where
-  mkApply rules = do
-    x <- fresh (string2Name "x")
-    return $ lam x (Match (Var x) rules)
+  mkApply arg rules = do
+    f <- fresh (string2Name "f")
+    return $ lam f (lam arg (Match (Var f) rules))
 
 type Arities = M.Map (Name Term) Int
 
@@ -105,8 +106,8 @@ instance Ord PreRule where
 
 type PreRules = M.Map PreRule Int
 
-defunc :: Fresh m => Arities -> Name Term -> [Term] -> m ([Term], S.Set Rule)
-defunc fs a ts = evalStateT (runWriterT (mapM (defuncFun fs a) ts)) M.empty
+defunc :: Fresh m => Arities -> Name Term -> Name Term -> [Term] -> m ([Term], S.Set Rule)
+defunc fs apply arg ts = evalStateT (runWriterT (mapM (defuncFun fs apply arg) ts)) M.empty
 
 getConstructorName :: MonadState PreRules m => PreRule -> m String
 getConstructorName pr = fmap mkName $ do
@@ -126,21 +127,23 @@ defuncFun
   :: (Fresh m, MonadState PreRules m, MonadWriter (S.Set Rule) m)
   => Arities
   -> Name Term
+  -> Name Term
   -> Term
   -> m Term
-defuncFun fs a (Lam b) = do
+defuncFun fs apply arg (Lam b) = do
   (x, t) <- unbind b
-  t' <- defuncFun fs a t
+  t' <- defuncFun fs apply arg t
   return (plam x t')
-defuncFun fs a t  = defuncTerm fs a t
+defuncFun fs apply arg t  = defuncTerm fs apply arg t
 
 defuncTerm
   :: (Fresh m, MonadState PreRules m, MonadWriter (S.Set Rule) m)
   => Arities
   -> Name Term
+  -> Name Term
   -> Term
   -> m Term
-defuncTerm fs apply term = go term
+defuncTerm fs apply arg term = go term
  where
   go t@(Var _) = return t
   go t@(Lit _) = return t
@@ -162,7 +165,10 @@ defuncTerm fs apply term = go term
     let pr = PreRule (bind (fns, p) e')
     c <- getConstructorName pr
     let pclos = PCons c (map PVar fns)
-    tell (S.singleton (Rule $ bind (ppair pclos p) e'))
+    let rhs = case p of
+                (PVar x) -> subst x (Var arg) e'
+                _ -> Let (bind p e') (Var arg)
+    tell (S.singleton (Rule $ bind pclos rhs))
     return $ Cons c (map Var fns)
   go (Let b t) = do
     (p, u) <- unbind b
@@ -174,13 +180,13 @@ defuncTerm fs apply term = go term
     return $ Cons c ts'
   go (Match t rs) = do
     t' <- go t
-    rs' <- mapM (defuncRule fs apply) rs
+    rs' <- mapM (defuncRule fs apply arg) rs
     return (Match t' rs')
 
-  mkApply a b = Var apply @: pair a b
+  mkApply a b = Var apply @: a @: b
 
-defuncRule fs apply (Rule b) = do
+defuncRule fs apply arg (Rule b) = do
   (p, t) <- unbind b
-  t' <- defuncTerm fs apply t
+  t' <- defuncTerm fs apply arg t
   return (Rule (bind p t'))
 
