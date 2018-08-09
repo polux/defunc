@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -74,7 +75,7 @@ data Term
   = Var (Name Term)
   | App Term Term
   | Lam (Bind Pattern Term)
-  | Let (Bind (Pattern, (Embed Term)) Term)
+  | Let (Bind (Pattern, Embed Term) Term)
   | Lit Int
   | Cons String [Term]
   | Match Term Rules
@@ -90,10 +91,7 @@ instance Subst Term Term where
   isvar _ = Nothing
 
 instance Subst Term Rule where
-  isvar _ = Nothing
-
 instance Subst Term Pattern where
-  isvar _ = Nothing
 
 instance Eq Term where
   (==) = aeq
@@ -131,3 +129,78 @@ data Val
   deriving (Show, Generic, Typeable)
 
 instance Alpha Val
+
+data Kind
+  = KType
+  | KArrow Kind Kind
+  deriving (Show, Generic, Typeable)
+
+data TyCon
+
+data Type
+  = TVar (Name Type)
+  | TUnit
+  | TCons (Name TyCon) [Type]
+  | TForall (Bind (Name Type) Type)
+  | TApp Type Type
+  deriving (Show, Generic, Typeable)
+
+instance Alpha Type
+
+instance Subst Type Type where
+  isvar (TVar v) = Just (SubstName v)
+  isvar _ = Nothing
+
+data DataCon
+
+data FPattern
+  = FPCons (Name DataCon) [Name Type] [FPattern]
+  | FPVar (Name FTerm)
+  | FPLit Int
+  deriving (Show, Generic, Typeable)
+
+type FRules = [FRule]
+
+data FRule = FRule (Bind FPattern FTerm)
+  deriving (Show, Generic, Typeable)
+
+data FTerm
+  = FVar (Name FTerm)
+  | FApp FTerm FTerm
+  | FTApp FTerm Type
+  | FLam (Bind (FPattern, Embed Type) FTerm)
+  | FTlam (Bind (Name Type) FTerm)
+  | FLet (Bind (FPattern, Embed Type, Embed FTerm) FTerm)
+  | FLit Int
+  | FCons (Name DataCon) [Type] [FTerm]
+  | FMatch Type FTerm FRules
+  deriving (Show, Generic, Typeable)
+
+instance Alpha FTerm
+instance Alpha FRule
+instance Alpha FPattern
+
+instance Subst FTerm FTerm where
+  isvar (FVar v) = Just (SubstName v)
+  isvar _ = Nothing
+
+instance Subst FTerm Type where
+instance Subst FTerm FRule where
+instance Subst FTerm FPattern where
+
+data Constraint = CEq Type Type
+  deriving (Show, Generic, Typeable)
+
+instance Alpha Constraint
+
+data TypeDecl = TypeDecl (Bind (Name TyCon) (Kind, [DataConDecl]))
+  deriving (Show, Generic, Typeable)
+
+data DataConDecl = DataConDecl (Bind [Name Type] ([Constraint], [Type], Type))
+  deriving (Show, Generic, Typeable)
+
+data FFunDefs = FFunDefs (Bind [Name FTerm] ([FTerm], FTerm))
+  deriving (Show, Generic, Typeable)
+
+data FProgram = FProgram (Bind [TypeDecl] FFunDefs)
+  deriving (Show, Generic, Typeable)
