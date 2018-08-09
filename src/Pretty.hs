@@ -41,7 +41,7 @@ prettyFunDefs (FunDefs b) =
   lunbind b $ \(fs, (ts, t)) -> do
     eqs <- zipWithM prettyEq fs ts
     t' <- prettyTerm False t
-    return $ D.hcat [eq <> D.semi <> D.hardline <> D.hardline | eq <- eqs] <> t'
+    return $ D.hcat [eq <> D.semi <> D.hardline | eq <- eqs] <> t'
  where
   prettyEq f t = do
     t' <- prettyEq' t

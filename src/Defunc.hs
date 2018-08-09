@@ -118,7 +118,7 @@ getConstructorName pr = fmap mkName $ do
       let n = maximumDef 0 (M.elems prs) + 1
       put (M.insert pr n prs)
       return n
-  where mkName n = "Clos" ++ show n
+  where mkName n = "C" ++ show n
 
 freeNames :: Term -> [Name Term]
 freeNames t = S.toList (S.fromList (U.toListOf fv t))
