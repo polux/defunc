@@ -41,7 +41,7 @@ prettyFunDefs (FunDefs b) =
   lunbind b $ \(fs, (ts, t)) -> do
     eqs <- zipWithM prettyEq fs ts
     t' <- prettyTerm False t
-    return $ D.hcat [eq <> D.semi <> D.hardline | eq <- eqs] <> t'
+    return $ D.hcat [eq <> D.semi <> D.hardline <> D.hardline | eq <- eqs] <> t'
  where
   prettyEq f t = do
     t' <- prettyEq' t
@@ -117,7 +117,7 @@ prettyTerm par t = prettyApps par (apps t)
         <> D.line
         <> "end"
 
-    prettyRules rs = D.vsep <$> mapM prettyRule rs
+    prettyRules rs = hardVsep <$> mapM prettyRule rs
 
     prettyRule (Rule b) =
       lunbind b $ \(p, t) -> do
@@ -136,6 +136,8 @@ prettyTerm par t = prettyApps par (apps t)
 
     parens :: Bool -> D.Doc a -> D.Doc a
     parens b d = if b then D.parens d else d
+
+    hardVsep = D.concatWith (\x y -> x <> D.hardline <> y)
 
 instance D.Pretty Term where
   pretty t = runLFreshM (prettyTerm False t)

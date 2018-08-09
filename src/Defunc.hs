@@ -50,7 +50,7 @@ defunctionalize (FunDefs b) =
  where
   mkApply arg rules = do
     f <- fresh (string2Name "f")
-    return $ lam f (lam arg (Match (Var f) rules))
+    return $ plam (ppair (PVar f) (PVar arg)) (Match (Var f) rules)
 
 type Arities = M.Map (Name Term) Int
 
@@ -183,7 +183,7 @@ defuncTerm fs apply arg term = go term
     rs' <- mapM (defuncRule fs apply arg) rs
     return (Match t' rs')
 
-  mkApply a b = Var apply @: a @: b
+  mkApply a b = Var apply @: pair a b
 
 defuncRule fs apply arg (Rule b) = do
   (p, t) <- unbind b
