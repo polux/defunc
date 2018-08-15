@@ -79,11 +79,11 @@ saturate fs t = go t
       (p, t) <- unbind b
       t' <- go t
       return (plam p t')
-    go (Let b t) = do
-      (p, u) <- unbind b
+    go (Let b) = do
+      ((p, t), u) <- unbind b
       u' <- go u
-      t' <- go t
-      return (Let (bind p u') t)
+      t' <- go (unembed t)
+      return (Let (bind (p, embed t') u'))
     go l@(Lit _) = return l
     go (Cons f ts) = Cons f <$> mapM go ts
     go (Match t rs) = Match <$> go t <*> mapM goRule rs
@@ -167,14 +167,14 @@ defuncTerm fs apply arg term = go term
     let pclos = PCons c (map PVar fns)
     let rhs = case p of
                 (PVar x) -> subst x (Var arg) e'
-                _ -> Let (bind p e') (Var arg)
+                _ -> Let (bind (p, embed (Var arg)) e')
     tell (S.singleton (Rule $ bind pclos rhs))
     return $ Cons c (map Var fns)
-  go (Let b t) = do
-    (p, u) <- unbind b
-    t' <- go t
+  go (Let b) = do
+    ((p, t), u) <- unbind b
+    t' <- go (unembed t)
     u' <- go u
-    return $ Let (bind p u') t'
+    return $ Let (bind (p, embed t') u')
   go (Cons c ts) = do
     ts' <- mapM go ts
     return $ Cons c ts'

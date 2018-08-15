@@ -79,8 +79,8 @@ prettyTerm par t = prettyApps par (apps t)
           $ D.group
           $ D.nest 2
           $ D.vsep ["\\" <> p' D.<+> "->", td]
-    prettyAtom par (Let b t) = lunbind b $ \(p, u) -> do
-      t' <- prettyTerm False t
+    prettyAtom par (Let b) = lunbind b $ \((p, t), u) -> do
+      t' <- prettyTerm False (unembed t)
       u' <- prettyTerm False u
       p' <- prettyPattern p
       return

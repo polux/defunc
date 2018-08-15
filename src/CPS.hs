@@ -38,7 +38,7 @@ termCps t = do
   return (lam k t')
 
 serious (App _ _) = True
-serious (Let _ _) = True
+serious (Let _) = True
 serious (Match _ _) = True
 serious (Cons _ ts) = any serious ts
 serious _ = False
@@ -88,10 +88,10 @@ sCps (Match t rs) k
 sCps t@(Cons _ _) k = do
   (cs, t) <- comps t
   cCps cs (k @: t)
-sCps (Let b t) k = do
-  (p, u) <- unbind b
+sCps (Let b) k = do
+  ((p, t), u) <- unbind b
   u' <- eCps u k
-  eCps t (plam p u')
+  eCps (unembed t) (plam p u')
 sCps (App t0 t1) k
   | serious t0 && serious t1 = do
       x0 <- fresh (string2Name "x")

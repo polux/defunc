@@ -74,9 +74,9 @@ evalTerm (App f t) = do
       env' <- match p vt
       local (const (env' ++ env)) (evalTerm u)
     _ -> throwError ("cannot apply " ++ show vf ++ " to " ++ show vt)
-evalTerm (Let b t) = do
-  (p, u) <- unbind b
-  vt <- evalTerm t
+evalTerm (Let b) = do
+  ((p, t), u) <- unbind b
+  vt <- evalTerm (unembed t)
   env <- match p vt
   local (env++) (evalTerm u)
 evalTerm (Match t rs) = do

@@ -19,7 +19,7 @@ import Data.Void
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Unbound.Generics.LocallyNameless (bind, string2Name)
+import Unbound.Generics.LocallyNameless (bind, embed, string2Name)
 
 sc = L.space (skipSome spaceChar *> pure ()) lineCmnt blockCmnt
  where
@@ -93,7 +93,7 @@ lambda = mkLam <$> s_lambda <*> some pattern <*> s_dot <*> lterm
 
 letIn = mkLets <$> s_let <*> sepBy binding s_semi <*> s_in <*> lterm
   where mkLets _ bindings _ t = foldr mkLet t bindings
-        mkLet (x, u) v = Let (bind x v) u
+        mkLet (x, u) v = Let (bind (x, embed u) v)
 
 binding = mkBinding <$> pattern <*> s_equals <*> lterm
   where mkBinding p _ t = (p, t)

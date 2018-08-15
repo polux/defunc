@@ -57,7 +57,7 @@ data Term
   = Var (Name Term)
   | App Term Term
   | Lam (Bind Pattern Term)
-  | Let (Bind Pattern Term) Term
+  | Let (Bind (Pattern, (Embed Term)) Term)
   | Lit Int
   | Cons String [Term]
   | Match Term Rules
