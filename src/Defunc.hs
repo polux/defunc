@@ -30,29 +30,35 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Safe (maximumDef)
 
-fixM f t = do
-  t' <- f t
-  if aeq t t'
-    then return t
-    else fixM f t'
-
 defunctionalize :: FunDefs -> FunDefs
-defunctionalize (FunDefs b) =
-  runFreshM $ do
-    (fs, (ts, t)) <- unbind b
-    apply <- fresh (string2Name "apply")
-    arg <- fresh (string2Name "x")
-    let step (u:us) = mapM (saturate (arities (zip fs us))) (u:us)
-    (t':ts') <- fixM step (t:ts)
-    (t'':ts'', rules) <- defunc (arities (zip fs ts')) apply arg (t':ts')
-    at <- mkApply arg (S.toList rules)
-    return $ FunDefs (bind (apply:fs) (at:ts'', t''))
+defunctionalize defs = go (saturateFunDefs defs)
  where
-  mkApply arg rules = do
+  go defs =
+    runFreshM $ do
+      (eqs, t) <- unmakeFunDefs defs
+      let (fs, ts) = unzip eqs
+      applyName <- fresh (string2Name "apply")
+      argName <- fresh (string2Name "x")
+      (t':ts', rules) <- defunc (arities eqs) applyName argName (t:ts)
+      applyTerm <- mkApplyFunction argName (S.toList rules)
+      return $ makeFunDefs (zip (applyName:fs) (applyTerm:ts')) t'
+  mkApplyFunction arg rules = do
     f <- fresh (string2Name "f")
     return $ plam (ppair (PVar f) (PVar arg)) (Match (Var f) rules)
 
 type Arities = M.Map (Name Term) Int
+
+saturateFunDefs defs = converge go defs
+ where
+  go defs = runFreshM $ do
+    (eqs, t) <- unmakeFunDefs defs
+    let ar = arities eqs
+        (fs, ts) = unzip eqs
+    ts' <- mapM (saturate ar) ts
+    t' <- saturate ar t
+    return $ makeFunDefs (zip fs ts') t'
+  converge f t = if aeq t t' then t else converge f t'
+    where t' = f t
 
 arities :: [(Name Term, Term)] -> Arities
 arities fs = M.fromList [(f, arity t) | (f, t) <- fs]

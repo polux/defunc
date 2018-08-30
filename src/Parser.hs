@@ -19,7 +19,7 @@ import Data.Void
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Unbound.Generics.LocallyNameless (bind, embed, string2Name)
+import Unbound.Generics.LocallyNameless (rec, bind, embed, string2Name)
 
 sc = L.space (skipSome spaceChar *> pure ()) lineCmnt blockCmnt
  where
@@ -131,8 +131,7 @@ eq = mkEq <$> identifier <*> many pattern <*> s_equals <*> lterm
 
 fundefs = mkEqs <$> try eq `endBy` s_semi <*> lterm
  where
-  mkEqs eqs t =
-    let (fs, ts) = unzip eqs in FunDefs (bind (map string2Name fs) (ts, t))
+   mkEqs eqs t = makeFunDefs [(string2Name f, u) | (f, u) <- eqs] t
 
 parseFunDefs :: String -> Either (ParseError Char Void) FunDefs
 parseFunDefs s = parse (sc *> (fundefs <* eof)) "" s

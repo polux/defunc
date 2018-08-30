@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- Copyright 2018 Google LLC
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,7 @@ import AST
 import qualified Data.Text.Prettyprint.Doc as D
 import qualified Data.Text.Prettyprint.Doc as D
 import qualified Data.Map as M
-import Unbound.Generics.LocallyNameless (LFresh, lunbind, runLFreshM, unembed)
+import Unbound.Generics.LocallyNameless (unrec, LFresh, lunbind, runLFreshM, unembed)
 import Control.Monad (zipWithM)
 
 prettyPattern :: LFresh m => Pattern -> m (D.Doc a)
@@ -38,13 +39,13 @@ prettyPattern (PCons c ps) = do
 
 prettyFunDefs :: LFresh m => FunDefs -> m (D.Doc a)
 prettyFunDefs (FunDefs b) =
-  lunbind b $ \(fs, (ts, t)) -> do
-    eqs <- zipWithM prettyEq fs ts
+  lunbind b $ \(eqs, t) -> do
+    eqs' <- mapM prettyEq (unrec eqs)
     t' <- prettyTerm False t
-    return $ D.hcat [eq <> D.semi <> D.hardline | eq <- eqs] <> t'
+    return $ D.hcat [eq <> D.semi <> D.hardline | eq <- eqs'] <> t'
  where
-  prettyEq f t = do
-    t' <- prettyEq' t
+  prettyEq (f, t) = do
+    t' <- prettyEq' (unembed t)
     return $ D.viaShow f D.<+> t'
   prettyEq' (Lam b) =
     lunbind b $ \(p, t) -> do
@@ -117,6 +118,7 @@ prettyTerm par t = prettyApps par (apps t)
         <> D.line
         <> "end"
 
+    prettyRules :: LFresh m => [Rule] -> m (D.Doc a)
     prettyRules rs = hardVsep <$> mapM prettyRule rs
 
     prettyRule (Rule b) =

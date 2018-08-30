@@ -24,11 +24,12 @@ import Control.Monad.Reader
 import qualified Data.Map as M
 
 eval :: FunDefs -> Either String Val
-eval (FunDefs b) = runFreshM . runExceptT $ mdo
-  (fs, (ts, t)) <- unbind b
+eval defs = runFreshM . runExceptT $ mdo
+  (eqs, t) <- unmakeFunDefs defs
+  let (fs, ts) = unzip eqs
   env <- do
     tsv <- mapM (evalTermWith env) ts
-    return $ (zip fs (map embed tsv))
+    return $ zip fs (map embed tsv)
   evalTermWith env t
 
 match :: MonadError String m => Pattern -> Val -> m Env

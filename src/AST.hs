@@ -26,15 +26,32 @@ import Unbound.Generics.LocallyNameless
   , Alpha
   , Bind
   , Embed
+  , Fresh
   , Name
+  , Rec
   , SubstName(..)
   , aeq
   , acompare
   , bind
-  , string2Name)
+  , embed
+  , rec
+  , string2Name
+  , unbind
+  , unembed
+  , unrec)
 
-data FunDefs = FunDefs (Bind [Name Term] ([Term], Term))
+data FunDefs = FunDefs (Bind (Rec [(Name Term, Embed Term)]) Term)
   deriving (Show, Generic, Typeable)
+
+unmakeFunDefs :: Fresh m => FunDefs -> m ([(Name Term, Term)], Term)
+unmakeFunDefs (FunDefs b) = do
+  (eqs, t) <- unbind b
+  return (map unwrap (unrec eqs), t)
+  where unwrap (x, u) = (x, unembed u)
+
+makeFunDefs :: [(Name Term, Term)] -> Term -> FunDefs
+makeFunDefs eqs t = FunDefs $ bind (rec (map wrap eqs)) t
+  where wrap (x, u) = (x, embed u)
 
 data Pattern
   = PCons String [Pattern]
@@ -66,6 +83,7 @@ data Term
 instance Alpha Term
 instance Alpha Rule
 instance Alpha Pattern
+instance Alpha FunDefs
 
 instance Subst Term Term where
   isvar (Var v) = Just (SubstName v)

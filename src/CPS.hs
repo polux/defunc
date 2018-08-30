@@ -18,12 +18,13 @@ import AST
 import Unbound.Generics.LocallyNameless
 
 cps :: FunDefs -> FunDefs
-cps (FunDefs b) = runFreshM $ do
-  (fs, (ts, t)) <- unbind b
+cps defs = runFreshM $ do
+  (eqs, t) <- unmakeFunDefs defs
+  let (fs, ts) = unzip eqs
   ts' <- mapM rhsCps ts
   idFun <- mkId
   t' <- eCps t idFun
-  return $ FunDefs (bind fs (ts', t'))
+  return $ makeFunDefs (zip fs ts') t
  where
   mkId = do
     x <- fresh (string2Name "x")
