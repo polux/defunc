@@ -137,6 +137,8 @@ data Kind
 
 data TyCon
 
+instance Alpha Kind
+
 data Type
   = TVar (Name Type)
   | TUnit
@@ -188,19 +190,23 @@ instance Subst FTerm Type where
 instance Subst FTerm FRule where
 instance Subst FTerm FPattern where
 
+data TypeDecl = TypeDecl (Name TyCon) (Embed Kind) [DataConDecl]
+  deriving (Show, Generic, Typeable)
+
 data Constraint = CEq Type Type
   deriving (Show, Generic, Typeable)
 
+data DataConDecl = DataConDecl (Name DataCon) (Embed (Bind [Name Type] ([Constraint], [Type], Type)))
+  deriving (Show, Generic, Typeable)
+
+data FFunDefs = FFunDefs (Bind (Rec [(Name FTerm, Embed FTerm)]) FTerm)
+  deriving (Show, Generic, Typeable)
+
+data FProgram = FProgram (Bind (Rec [TypeDecl]) FFunDefs)
+  deriving (Show, Generic, Typeable)
+
 instance Alpha Constraint
-
-data TypeDecl = TypeDecl (Bind (Name TyCon) (Kind, [DataConDecl]))
-  deriving (Show, Generic, Typeable)
-
-data DataConDecl = DataConDecl (Bind [Name Type] ([Constraint], [Type], Type))
-  deriving (Show, Generic, Typeable)
-
-data FFunDefs = FFunDefs (Bind [Name FTerm] ([FTerm], FTerm))
-  deriving (Show, Generic, Typeable)
-
-data FProgram = FProgram (Bind [TypeDecl] FFunDefs)
-  deriving (Show, Generic, Typeable)
+instance Alpha TypeDecl
+instance Alpha DataConDecl
+instance Alpha FFunDefs
+instance Alpha FProgram
