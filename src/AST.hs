@@ -132,7 +132,7 @@ instance Alpha Val
 
 data Kind
   = KType
-  | KArrow Kind Kind
+  | KArrow [Kind] Kind
   deriving (Show, Generic, Typeable)
 
 data TyCon
@@ -144,7 +144,6 @@ data Type
   | TUnit
   | TCons (Name TyCon) [Type]
   | TForall (Bind (Name Type) Type)
-  | TApp Type Type
   deriving (Show, Generic, Typeable)
 
 instance Alpha Type
