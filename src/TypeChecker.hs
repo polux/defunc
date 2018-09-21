@@ -3,9 +3,12 @@ module TypeChecker where
 import AST
 import Unbound.Generics.LocallyNameless
 import Control.Monad.IO.Class
-import Data.Text.Prettyprint.Doc (pretty)
+import Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, pretty)
 import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
+import Data.Text.Prettyprint.Doc.Render.String (renderString)
+import Parser
 import Pretty
+import Text.Megaparsec (parseErrorPretty)
 
 nat, arrow, list, vec, sTyCon, zTyCon :: Name TyCon
 nat = string2Name "Nat"
@@ -83,5 +86,16 @@ program = FProgram $ bind (rec typeDecls) funDefs
 
 main :: IO ()
 main = do
-  putDoc (pretty program)
-  putStrLn ""
+  let prettyProg = renderString (layoutPretty defaultLayoutOptions (pretty program))
+  --prettyProg <- getContents
+  putStrLn prettyProg
+  putStrLn "-----"
+  case parseFProgram prettyProg of
+    Left e -> putStrLn (parseErrorPretty e)
+    Right p -> do
+      print p
+      putStrLn "----------"
+      putStrLn (render p)
+      putStrLn "----------"
+      print (render p == prettyProg)
+  where render p = renderString (layoutPretty defaultLayoutOptions (pretty p))
