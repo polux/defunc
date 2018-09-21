@@ -192,9 +192,11 @@ prettyType arName par ty = prettyArrows par (arrows ty)
     prettyAtom _ (TVar x) = return $ D.viaShow x
     prettyAtom _ TUnit = return "Unit"
     prettyAtom _ ty@(TCons c tys) | c == arName = D.parens <$> prettyType arName False ty
-    prettyAtom _ (TCons c tys) = do
-      tys' <- mapM (prettyType arName False) tys
-      return $ D.viaShow c D.<> D.align (D.list tys')
+    prettyAtom _ (TCons c tys)
+      | null tys = return (D.viaShow c)
+      | otherwise = do
+        tys' <- mapM (prettyType arName False) tys
+        return $ D.viaShow c D.<> D.align (D.list tys')
     prettyAtom par (TForall b) =
       lunbind b $ \(x, ty) -> do
         ty' <- prettyType arName False ty
@@ -268,7 +270,8 @@ prettyFTerm arName par t = prettyApps par (apps t)
     prettyTermAtom _ (FCons c tys ts) = do
       ts' <- traverse (prettyFTerm arName False) ts
       tys' <- traverse (prettyType arName False) tys
-      return $ D.viaShow c <> D.align (D.list tys') D.<> D.align (D.tupled ts')
+      let typeAppl = if null tys then mempty else D.align (D.list tys')
+      return $ D.viaShow c <> typeAppl D.<> D.align (D.tupled ts')
     prettyTermAtom par (FMatch ty t rs) = do
       ty' <- prettyType arName False ty
       t' <- prettyFTerm arName False t
@@ -361,7 +364,7 @@ prettyTypeDecl arName (TypeDecl c k ds) = do
 prettyTypeDecls :: LFresh m => Name TyCon -> [TypeDecl] -> m (D.Doc a)
 prettyTypeDecls arName decls = do
   decls' <- mapM (prettyTypeDecl arName) decls
-  return $ D.hcat [d <> D.semi <> D.hardline | d <- decls']
+  return $ D.hcat [d <> D.hardline | d <- decls']
 
 prettyFProgram :: LFresh m => Name TyCon -> FProgram -> m (D.Doc a)
 prettyFProgram arName (FProgram b) =
