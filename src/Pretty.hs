@@ -174,9 +174,14 @@ prettyEnv env =
 instance D.Pretty Val where
   pretty t = runLFreshM (prettyVal t)
 
-prettyKind :: Kind -> D.Doc a
-prettyKind KType = "Type"
-prettyKind (KArrow ks k) = D.align (D.tupled (map prettyKind ks)) D.<+> "->" D.<+> prettyKind k
+prettyKind :: Bool -> Kind -> D.Doc a
+prettyKind _ KType = "Type"
+prettyKind par (KArrow ks k) =
+  parens par
+    $ D.align (sepByStar (map (prettyKind True) ks))
+    D.<+> "->"
+    D.<+> prettyKind False k
+  where sepByStar = D.encloseSep mempty mempty " * "
 
 prettyType :: LFresh m => Name TyCon -> Bool -> Type -> m (D.Doc a)
 prettyType arName par ty = prettyArrows par (arrows ty)
@@ -350,7 +355,7 @@ prettyTypeDecl :: LFresh m => Name TyCon -> TypeDecl -> m (D.Doc a)
 prettyTypeDecl arName (TypeDecl c k ds) = do
   let c' = D.viaShow c
   ds' <- mapM (prettyDataConDecl arName) ds
-  let k' = prettyKind (unembed k)
+  let k' = prettyKind False (unembed k)
   return
     $ "data"
     D.<+> c'
