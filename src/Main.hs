@@ -19,44 +19,18 @@ import Pretty
 import CPS
 import Defunc
 import Eval
+import Meta
 import Parser
 
-import Control.Arrow ((>>>))
+import Control.Monad.Except
 import System.Environment (getArgs)
-import Safe (lastMay)
-import Text.Show.Pretty (pPrint)
-import Text.Megaparsec (parseErrorPretty)
-import Data.Text.Prettyprint.Doc (pretty)
-import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
-
-process :: (FunDefs -> FunDefs) -> (FunDefs -> IO ()) -> IO ()
-process f k = do
-  s <- getContents
-  case parseFunDefs s of
-    Left e -> error (parseErrorPretty e)
-    Right lt -> k (f lt)
-
-parseAgs :: [String] -> (FunDefs -> FunDefs)
-parseAgs = foldr (>>>) id . map parseArg
-  where parseArg "cps" = cps
-        parseArg "defunc" = defunctionalize
-        parseAgs x = error ("unknown option " ++ x)
-
-printPrettyFunDefs :: FunDefs -> IO ()
-printPrettyFunDefs defs = do
-  putDoc (pretty defs)
-  putStrLn ""
-
-evalAndPrintValue :: FunDefs -> IO ()
-evalAndPrintValue defs = do
-  case eval defs of
-    Left e -> putStrLn e
-    Right v -> do
-      putDoc (pretty v)
-      putStrLn ""
 
 main = do
   args <- getArgs
-  if (lastMay args == Just "eval")
-    then process (parseAgs (init args)) evalAndPrintValue
-    else process (parseAgs args) printPrettyFunDefs
+  input <- getContents
+  let res = runExcept $ do
+        metaProg <- parseMeta args
+        evalMeta metaProg input
+  case res of
+    Left e -> error e
+    Right s -> putStrLn s
