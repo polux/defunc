@@ -38,16 +38,19 @@ import Text.Megaparsec (parseErrorPretty)
 data MetaType :: * -> * where
   MString :: MetaType String
   MFunDefs :: MetaType FunDefs
+  MFProgram :: MetaType FProgram
   MVal :: MetaType Val
 
 instance Show (MetaType a) where
   show MString = "String"
   show MFunDefs = "FunDefs"
+  show MFProgram = "FProgram"
   show MVal = "Val"
 
 data MetaExpr :: * -> * -> * where
   Pipe :: MetaExpr a b -> MetaExpr b c -> MetaExpr a c
-  Parse :: MetaExpr String FunDefs
+  ParseFunDefs :: MetaExpr String FunDefs
+  ParseFProgram :: MetaExpr String FProgram
   Cps :: MetaExpr FunDefs FunDefs
   Defunc :: MetaExpr FunDefs FunDefs
   Eval :: MetaExpr FunDefs Val
@@ -61,21 +64,26 @@ parseMeta es = go MString es
     => MetaType a
     -> [String]
     -> m (MetaExpr a String)
-  go MString ("parse" : es) = Pipe Parse <$> go MFunDefs es
+  go MString ("parse" : es) = Pipe ParseFunDefs <$> go MFunDefs es
+  go MString ("parse_f" : es) = Pipe ParseFProgram <$> go MFProgram es
   go MFunDefs ("cps" : es) = Pipe Cps <$> go MFunDefs es
   go MFunDefs ("defunc" : es) = Pipe Defunc <$> go MFunDefs es
   go MFunDefs ("eval" : es) = Pipe Eval <$> go MVal es
   go mt (e : _) =
     throwError $ "cannot apply " ++ e ++ " to meta values of type " ++ show mt
   go MFunDefs [] = return Pretty
+  go MFProgram [] = return Pretty
   go MVal [] = return Pretty
   go mt [] = throwError $ "cannot pretty print meta values of type " ++ show mt
 
 evalMeta :: MonadError String m => MetaExpr a b -> a -> m b
 evalMeta (Pipe e1 e2) x = evalMeta e1 x >>= evalMeta e2
-evalMeta Parse s = case parseFunDefs s of
+evalMeta ParseFunDefs s = case parseFunDefs s of
   Left e -> throwError (parseErrorPretty e)
   Right defs -> return defs
+evalMeta ParseFProgram s = case parseFProgram s of
+  Left e -> throwError (parseErrorPretty e)
+  Right prog -> return prog
 evalMeta Cps defs = return (cps defs)
 evalMeta Defunc defs = return (defunctionalize defs)
 evalMeta Eval defs = case eval defs of
