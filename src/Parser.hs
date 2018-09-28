@@ -174,7 +174,7 @@ typeDecl =
     <*> s_colon
     <*> kind
     <*> s_where
-    <*> (dataConDecl `endBy` s_semi)
+    <*> many (s_pipe *> (dataConDecl))
     <*> s_end
   where mkDecl _ tyCon _ k _ decls _ = TypeDecl tyCon (embed k) decls
 

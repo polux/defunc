@@ -136,8 +136,6 @@ prettyTerm par t = prettyApps par (apps t)
     asList (Cons "Cons" [x, y]) = (x:) <$> asList y
     asList _ = Nothing
 
-    hardVsep = D.concatWith (\x y -> x <> D.hardline <> y)
-
 instance D.Pretty Term where
   pretty t = runLFreshM (prettyTerm False t)
 
@@ -362,7 +360,8 @@ prettyTypeDecl arName (TypeDecl c k ds) = do
     D.<+> ":"
     D.<+> k'
     D.<+> "where"
-    <> D.nest 2 (D.hcat [ D.hardline <> d <> D.semi | d <- ds' ])
+    <> D.hardline
+    <> hardVsep (map ("|" D.<+>) ds')
     <> D.hardline
     <> "end"
 
@@ -383,3 +382,5 @@ instance D.Pretty FProgram where
 
 parens :: Bool -> D.Doc a -> D.Doc a
 parens b d = if b then D.parens d else d
+
+hardVsep = D.concatWith (\x y -> x <> D.hardline <> y)
