@@ -1,0 +1,32 @@
+data Bool : Type where
+end
+
+data Nat : Type where
+| Z : Nat
+| S : Nat -> Nat
+| NativePlus : Nat * Nat -> Nat
+end
+
+data Arrow : Type * Type -> Type where
+end
+
+data Expr : Type -> Type where
+| NatLit : Nat -> Expr[Nat]
+| BoolLit : Bool -> Expr[Bool]
+| Plus : Expr[Nat] * Expr[Nat] -> Expr[Nat]
+| IfThenElse : forall a. Expr[Bool] * Expr[a] * Expr[a] -> Expr[a]
+| LessThan : Expr[Nat] * Expr[Nat] -> Expr[Bool]
+end
+
+eval = \@a -> \(e:Expr[a]) ->
+  match e with [a]
+    | NatLit(n) -> n
+    | Plus(e1, e2) -> NativePlus(eval @Int e1, eval @Int e2)
+  end;
+
+IfThenElse[Nat](
+  LessThan(NatLit(Z()), NatLit(S(Z()))),
+  NatLit(Z()),
+  NatLit(S(Z()))
+)
+ 
