@@ -24,7 +24,7 @@ cps defs = runFreshM $ do
   ts' <- mapM rhsCps ts
   idFun <- mkId
   t' <- eCps t idFun
-  return $ makeFunDefs (zip fs ts') t
+  return $ makeFunDefs (zip fs ts') t'
  where
   mkId = do
     x <- fresh (string2Name "x")
