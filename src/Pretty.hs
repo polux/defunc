@@ -215,10 +215,11 @@ prettyFPattern :: FPattern -> D.Doc a
 prettyFPattern (FPVar x) = D.viaShow x
 prettyFPattern (FPLit i) = D.viaShow i
 prettyFPattern (FPCons c vs ps) = do
-  D.viaShow c <> D.align (D.list vs') <> D.align (D.tupled ps')
+  D.viaShow (unembed c) <> vs' <> ps'
   where
-    ps' = map prettyFPattern ps
-    vs' = map D.viaShow vs
+    ps' = D.align (D.tupled (map prettyFPattern ps))
+    vs' | null vs = mempty
+        | otherwise = D.align (D.list (map D.viaShow vs))
 
 prettyFTerm :: LFresh m => Name TyCon -> Bool -> FTerm -> m (D.Doc a)
 prettyFTerm arName par t = prettyApps par (apps t)

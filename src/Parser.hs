@@ -258,7 +258,7 @@ fPatternApp =
     <$> fConstructorName
     <*> option [] (squares (fTypeName `sepBy` s_comma))
     <*> parens (fPattern `sepBy` s_comma)
-  where mkCons c tvs ps = FPCons c tvs ps
+  where mkCons c tvs ps = FPCons (embed c) tvs ps
 
 fPVar = FPVar <$> fTermName
 

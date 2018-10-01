@@ -155,7 +155,7 @@ instance Subst Type Type where
 data DataCon
 
 data FPattern
-  = FPCons (Name DataCon) [Name Type] [FPattern]
+  = FPCons (Embed (Name DataCon)) [Name Type] [FPattern]
   | FPVar (Name FTerm)
   | FPLit Int
   deriving (Show, Generic, Typeable)
