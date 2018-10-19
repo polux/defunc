@@ -29,6 +29,7 @@ import Eval
 import Defunc
 import Parser
 import Pretty
+import TypeChecker
 
 import Control.Monad.Except
 import Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, Pretty, pretty)
@@ -40,12 +41,14 @@ data MetaType :: * -> * where
   MFunDefs :: MetaType FunDefs
   MFProgram :: MetaType FProgram
   MVal :: MetaType Val
+  MType :: MetaType Type
 
 instance Show (MetaType a) where
   show MString = "String"
   show MFunDefs = "FunDefs"
   show MFProgram = "FProgram"
   show MVal = "Val"
+  show MType = "Type"
 
 data MetaExpr :: * -> * -> * where
   Pipe :: MetaExpr a b -> MetaExpr b c -> MetaExpr a c
@@ -55,6 +58,7 @@ data MetaExpr :: * -> * -> * where
   Defunc :: MetaExpr FunDefs FunDefs
   Eval :: MetaExpr FunDefs Val
   Pretty :: Pretty a => MetaExpr a String
+  TypeCheck :: MetaExpr FProgram Type
 
 parseMeta :: MonadError String m => [String] -> m (MetaExpr String String)
 parseMeta es = go MString es
@@ -69,11 +73,13 @@ parseMeta es = go MString es
   go MFunDefs ("cps" : es) = Pipe Cps <$> go MFunDefs es
   go MFunDefs ("defunc" : es) = Pipe Defunc <$> go MFunDefs es
   go MFunDefs ("eval" : es) = Pipe Eval <$> go MVal es
+  go MFProgram ("typecheck" : es) = Pipe TypeCheck <$> go MType es
   go mt (e : _) =
     throwError $ "cannot apply " ++ e ++ " to meta values of type " ++ show mt
   go MFunDefs [] = return Pretty
   go MFProgram [] = return Pretty
   go MVal [] = return Pretty
+  go MType [] = return Pretty
   go mt [] = throwError $ "cannot pretty print meta values of type " ++ show mt
 
 evalMeta :: MonadError String m => MetaExpr a b -> a -> m b
@@ -89,6 +95,7 @@ evalMeta Defunc defs = return (defunctionalize defs)
 evalMeta Eval defs = case eval defs of
   Left e -> throwError e
   Right v -> return v
+evalMeta TypeCheck prog = typeCheck prog
 evalMeta Pretty x = return (toString x)
 
 toString :: Pretty a => a -> String
