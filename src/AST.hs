@@ -90,8 +90,8 @@ instance Subst Term Term where
   isvar (Var v) = Just (SubstName v)
   isvar _ = Nothing
 
-instance Subst Term Rule where
-instance Subst Term Pattern where
+instance Subst Term Rule
+instance Subst Term Pattern
 
 instance Eq Term where
   (==) = aeq
@@ -185,14 +185,14 @@ instance Subst FTerm FTerm where
   isvar (FVar v) = Just (SubstName v)
   isvar _ = Nothing
 
-instance Subst FTerm Type where
-instance Subst FTerm FRule where
-instance Subst FTerm FPattern where
+instance Subst FTerm Type
+instance Subst FTerm FRule
+instance Subst FTerm FPattern
 
 data TypeDecl = TypeDecl (Name TyCon) (Embed Kind) [DataConDecl]
   deriving (Show, Generic, Typeable)
 
-data Constraint = CEq Type Type
+data Constraint = Type :~: Type
   deriving (Show, Generic, Typeable)
 
 data DataConDecl = DataConDecl (Name DataCon) (Embed (Bind [Name Type] ([Constraint], [Type], Type)))
@@ -209,3 +209,5 @@ instance Alpha TypeDecl
 instance Alpha DataConDecl
 instance Alpha FFunDefs
 instance Alpha FProgram
+
+instance Subst Type Constraint
