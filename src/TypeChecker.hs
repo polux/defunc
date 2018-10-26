@@ -35,13 +35,18 @@ typeCheck :: MonadError String m => FProgram -> m Type
 typeCheck (FProgram b) = runFreshMT $ do
   (rdecls, FFunDefs bdefs) <- unbind b
   (rdefs, term) <- unbind bdefs
-  let
-    decls = unrec rdecls
-    defs = [(x, unembed ty, unembed t) | (x, ty, t) <- unrec rdefs]
-    sigma = extractSigma decls
-    gamma = [(x, ty) | (x, ty, _) <- defs]
+  let decls = unrec rdecls
+      defs = [ (x, unembed ty, unembed t) | (x, ty, t) <- unrec rdefs ]
+      sigma = extractSigma decls
+      gamma = [ (x, ty) | (x, ty, _) <- defs ]
   mapM_ (checkDef sigma [] [] gamma) defs
   typeCheckFTerm sigma [] [] gamma term
+ where
+  extractSigma :: [TypeDecl] -> Sigma
+  extractSigma decls = concatMap extract decls
+   where
+    extract (TypeDecl _ _ decls) = map break decls
+    break (DataConDecl conName sig) = (conName, unembed sig)
 
 typeCheckFTerm
   :: MonadError String m => Sigma -> Alphas -> Delta -> Gamma -> FTerm -> m Type
@@ -76,17 +81,6 @@ lookupType gamma x = maybe
   return
   (lookup x gamma)
 
-extractProofObligations :: [(Name FTerm, Embed Type, Embed FTerm)] -> [(FTerm, Type)]
-extractProofObligations defs = [(unembed t, unembed ty) | (_, ty, t) <- defs]
-
-extractGamma :: [(Name FTerm, Embed Type, Embed FTerm)] -> Gamma
-extractGamma defs = [(x, unembed ty) | (x, ty, _) <- defs]
-
-extractSigma :: [TypeDecl] -> Sigma
-extractSigma decls = concatMap extract decls
-  where
-    extract (TypeDecl _ _ decls) = map break decls
-    break (DataConDecl conName sig) = (conName, unembed sig)
 
 entailsAll :: Fresh m => Alphas -> Delta -> [Constraint] -> m Bool
 entailsAll alphas delta delta' = allM entailsConstraint delta'
