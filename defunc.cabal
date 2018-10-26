@@ -36,5 +36,6 @@ executable defunc
                        prettyprinter,
                        mtl,
                        pretty-show,
-                       safe
+                       safe,
+                       monad-loops
   ghc-options: -O2
