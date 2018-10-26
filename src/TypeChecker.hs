@@ -101,7 +101,12 @@ typeCheckFTerm sigma alphas delta gamma t = check t
         checkEqTypes alphas delta u1 ty2
         return u2
       _ -> throwError
-        (toString t1 ++ " cannot be applied: it has type " ++ toString ty1)
+        (toString t1
+        ++ " cannot be applied: it has type "
+        ++ toString ty1
+        ++ " under the assumptions "
+        ++ show delta
+        )
   check (FTApp t ty) = do
     checkKind alphas ty KType
     tty <- check t

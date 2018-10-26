@@ -1,0 +1,16 @@
+data Nat : Type where
+| Z : Nat
+| S : Nat -> Nat
+end
+
+data Fun : Type -> Type where
+| Fun : forall a. (a -> a) -> Fun[a]
+end
+
+data Id : Type -> Type where
+| Id : forall a. a -> Id[a]
+end
+
+match Id[Nat -> Nat](\(x:Nat) -> x) with [Nat]
+| Id[b](f) -> f Z()
+end
