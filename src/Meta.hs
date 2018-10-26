@@ -32,9 +32,8 @@ import Pretty
 import TypeChecker
 
 import Control.Monad.Except
-import Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, Pretty, pretty)
-import Data.Text.Prettyprint.Doc.Render.String (renderString)
 import Text.Megaparsec (parseErrorPretty)
+import Data.Text.Prettyprint.Doc (Pretty)
 
 data MetaType :: * -> * where
   MString :: MetaType String
@@ -98,5 +97,3 @@ evalMeta Eval defs = case eval defs of
 evalMeta TypeCheck prog = typeCheck prog
 evalMeta Pretty x = return (toString x)
 
-toString :: Pretty a => a -> String
-toString = renderString . layoutPretty defaultLayoutOptions . pretty

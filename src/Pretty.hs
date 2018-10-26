@@ -15,11 +15,11 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Pretty () where
+module Pretty (toString) where
 
 import AST
 import qualified Data.Text.Prettyprint.Doc as D
-import qualified Data.Text.Prettyprint.Doc as D
+import Data.Text.Prettyprint.Doc.Render.String (renderString)
 import qualified Data.Map as M
 import Unbound.Generics.LocallyNameless (string2Name, Name, unrec, LFresh, lunbind, runLFreshM, unembed)
 import Control.Monad (zipWithM)
@@ -380,3 +380,6 @@ parens :: Bool -> D.Doc a -> D.Doc a
 parens b d = if b then D.parens d else d
 
 hardVsep = D.concatWith (\x y -> x <> D.hardline <> y)
+
+toString :: D.Pretty a => a -> String
+toString = renderString . D.layoutPretty D.defaultLayoutOptions . D.pretty

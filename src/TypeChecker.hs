@@ -17,6 +17,8 @@
 module TypeChecker where
 
 import AST
+import Pretty
+
 import Control.Monad.Except
 import Unbound.Generics.LocallyNameless
 import qualified Unbound.Generics.LocallyNameless.Internal.Fold as U
@@ -30,11 +32,35 @@ type Alphas = [Name Type]
 type Gamma = [(Name FTerm, Type)]
 
 typeCheck :: MonadError String m => FProgram -> m Type
-typeCheck prog = throwError "type checking not yet implemented"
+typeCheck (FProgram b) = runFreshMT $ do
+  (rdecls, FFunDefs bdefs) <- unbind b
+  (rdefs, term) <- unbind bdefs
+  let
+    decls = unrec rdecls
+    defs = [(x, unembed ty, unembed t) | (x, ty, t) <- unrec rdefs]
+    sigma = extractSigma decls
+    gamma = [(x, ty) | (x, ty, _) <- defs]
+  mapM_ (checkDef sigma [] [] gamma) defs
+  typeCheckFTerm sigma [] [] gamma term
 
 typeCheckFTerm
   :: MonadError String m => Sigma -> Alphas -> Delta -> Gamma -> FTerm -> m Type
 typeCheckFTerm sigma alphas delta gamma _ = undefined
+
+checkDef
+  :: (MonadError String m, Fresh m)
+  => Sigma
+  -> Alphas
+  -> Delta
+  -> Gamma
+  -> (Name FTerm, Type, FTerm)
+  -> m ()
+checkDef sigma alphas delta gamma (x, ty, t) = do
+  ty' <- typeCheckFTerm sigma alphas delta gamma t
+  eq <- entails alphas delta ty ty'
+  if eq
+    then return ()
+    else throwError (show x ++ " does not have type " ++ toString ty)
 
 lookupDataCon
   :: MonadError String m => Sigma -> Name DataCon -> m DataConSignature
@@ -49,6 +75,12 @@ lookupType gamma x = maybe
   (throwError $ show x ++ " not found")
   return
   (lookup x gamma)
+
+extractProofObligations :: [(Name FTerm, Embed Type, Embed FTerm)] -> [(FTerm, Type)]
+extractProofObligations defs = [(unembed t, unembed ty) | (_, ty, t) <- defs]
+
+extractGamma :: [(Name FTerm, Embed Type, Embed FTerm)] -> Gamma
+extractGamma defs = [(x, unembed ty) | (x, ty, _) <- defs]
 
 extractSigma :: [TypeDecl] -> Sigma
 extractSigma decls = concatMap extract decls
