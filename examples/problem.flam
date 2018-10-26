@@ -18,7 +18,7 @@ data Id : Type -> Type where
   | Id : forall a . a -> Id[a]
 end
 
-eval : forall a. Expr[a] -> a =
+eval : forall a. Id[Expr[a]] -> a =
   \@a -> \(i:Id[Expr[a]]) ->
     match i with [a]
       | Id[b](e) -> 
@@ -31,8 +31,9 @@ eval : forall a. Expr[a] -> a =
 
 eval
   @Nat
-  IfThenElse[Nat](
-    LessThan(NatLit(Z()), NatLit(S(Z()))),
-    NatLit(Z()),
-    NatLit(S(Z())))
+  Id[Expr[Nat]](
+    IfThenElse[Nat](
+      LessThan(NatLit(Z()), NatLit(S(Z()))),
+      NatLit(Z()),
+      NatLit(S(Z()))))
  

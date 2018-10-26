@@ -166,8 +166,8 @@ typeCheckPattern sigma alphas = check
   check (FPCons (unembed->con) tvars ps) ty = do
     bsig <- lookupDataCon sigma con
     (sigTvars, (sigDelta, sigTys, sigReturnType)) <- unbind bsig
-    case (ty, sigReturnType) of
-      (TCons tyCon tyArgs, TCons sigCon sigTyArgs) | aeq tyCon sigCon -> do
+    case sigReturnType of
+      TCons sigCon sigTyArgs -> do
         when
           (length sigTvars < length tvars)
           (throwError (show con ++ " is applied to too many type arguments"))
@@ -183,15 +183,13 @@ typeCheckPattern sigma alphas = check
             <$> zipWithM (typeCheckPattern sigma (tvars ++ alphas)) ps sigTys
         return
           ( tvars ++ alphas' ++ alphas
-          , (zipWith (:~:) sigTyArgs tyArgs) ++ deltas'
+          , (ty :~: sigReturnType) : deltas'
           , gammas'
           )
       _ -> throwError
         ("pattern return type "
         ++ toString sigReturnType
-        ++ " does not match expected "
-        ++ toString ty
-        )
+        ++ " is not a type constructor application")
 
 checkDef
   :: (MonadError String m, Fresh m)
