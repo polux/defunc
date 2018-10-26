@@ -5,6 +5,7 @@ data Nat : Type where
 | Z : Nat
 | S : Nat -> Nat
 | NativePlus : Nat * Nat -> Nat
+| NativeLessThan : Nat * Nat -> Bool
 end
 
 data Arrow : Type * Type -> Type where
@@ -23,6 +24,7 @@ eval : forall a. Expr[a] -> a =
     match e with [a]
       | NatLit(n) -> n
       | Plus(e1, e2) -> NativePlus(eval @Nat e1, eval @Nat e2)
+      | LessThan(e1, e2)-> NativeLessThan(eval @Nat e1, eval @Nat e2) 
     end;
 
 eval
