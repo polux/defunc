@@ -18,15 +18,17 @@ data Expr : Type -> Type where
 | LessThan : Expr[Nat] * Expr[Nat] -> Expr[Bool]
 end
 
-eval = \@a -> \(e:Expr[a]) ->
-  match e with [a]
-    | NatLit(n) -> n
-    | Plus(e1, e2) -> NativePlus(eval @Int e1, eval @Int e2)
-  end;
+eval : forall a. Expr[a] -> a =
+  \@a -> \(e:Expr[a]) ->
+    match e with [a]
+      | NatLit(n) -> n
+      | Plus(e1, e2) -> NativePlus(eval @Nat e1, eval @Nat e2)
+    end;
 
-IfThenElse[Nat](
-  LessThan(NatLit(Z()), NatLit(S(Z()))),
-  NatLit(Z()),
-  NatLit(S(Z()))
-)
+eval
+  @Nat
+  IfThenElse[Nat](
+    LessThan(NatLit(Z()), NatLit(S(Z()))),
+    NatLit(Z()),
+    NatLit(S(Z())))
  

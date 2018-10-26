@@ -313,24 +313,19 @@ instance D.Pretty FTerm where
   pretty t = runLFreshM (prettyFTerm (string2Name "->") False t)
 
 prettyFFunDefs :: LFresh m => Name TyCon -> FFunDefs -> m (D.Doc a)
-prettyFFunDefs arName (FFunDefs b) =
-  lunbind b $ \(eqs, t) -> do
-    eqs' <- mapM prettyEq (unrec eqs)
-    t' <- prettyFTerm arName False t
-    return $ D.hcat [eq <> D.semi <> D.hardline | eq <- eqs'] <> t'
+prettyFFunDefs arName (FFunDefs b) = lunbind b $ \(eqs, t) -> do
+  eqs' <- mapM prettyEq (unrec eqs)
+  t' <- prettyFTerm arName False t
+  return $ D.hcat [ eq <> D.semi <> D.hardline | eq <- eqs' ] <> t'
  where
-  prettyEq (f, t) = do
-    t' <- prettyEq' (unembed t)
-    return $ D.viaShow f D.<+> t'
-  prettyEq' (FLam b) =
-    lunbind b $ \((p, ty), t) -> do
-      t' <- prettyEq' t
-      let p' = prettyFPattern p
-      ty' <- prettyType arName False (unembed ty)
-      return $ D.parens (p' D.<+> ":" D.<+> ty') D.<+> t'
-  prettyEq' t = do
-    t' <- prettyFTerm arName False t
-    return $ D.group $ D.nest 2 $ "=" <> D.line <> t'
+  prettyEq (f, ty, t) = do
+    ty' <- prettyType arName False (unembed ty)
+    t' <- prettyFTerm arName False (unembed t)
+    return
+      $ D.viaShow f
+      D.<+> ":"
+      D.<+> ty'
+      D.<+> (D.group $ D.nest 2 $ "=" D.<+> t')
 
 instance D.Pretty FFunDefs where
   pretty fs = runLFreshM (prettyFFunDefs (string2Name "->") fs)

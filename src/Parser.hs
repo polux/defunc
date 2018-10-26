@@ -199,8 +199,8 @@ tUnit = s_unit *> pure TUnit
 
 tCons = TCons <$> fTyConName <*> option [] (squares (fType `sepBy` s_comma))
 
-tForall = mkForall <$> some fTypeName <*> s_dot <*> fType
-  where mkForall vs _ ty = foldr mkBinForall ty vs
+tForall = mkForall <$> s_forall <*> some fTypeName <*> s_dot <*> fType
+  where mkForall _ vs _ ty = foldr mkBinForall ty vs
         mkBinForall v ty = TForall (bind v ty)
 
 fTerm = foldl app <$> fTermAtom <*> many fAtom
@@ -275,10 +275,11 @@ fMatch =
 fRule = mkRule <$> s_pipe <*> fPattern <*> s_arrow <*> fTerm
   where mkRule _ p _ t = FRule (bind p t)
 
-fEq = (,) <$> try (fTermName <* s_equals) <*> fTerm
+fEq = mkEq <$> try (fTermName <* s_colon) <*> fType <*> s_equals <*> fTerm
+  where mkEq x ty _ t = (x, embed ty, embed t)
 
 fFunDefs = mkEqs <$> fEq `endBy` s_semi <*> fTerm
-  where mkEqs eqs t = FFunDefs $ bind (rec (map (id *** embed) eqs)) t
+  where mkEqs eqs t = FFunDefs $ bind (rec eqs) t
 
 fProgram = mkProg <$> many typeDecl <*> fFunDefs
   where mkProg decls defs = FProgram (bind (rec decls) defs)

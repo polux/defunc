@@ -198,7 +198,7 @@ data Constraint = Type :~: Type
 data DataConDecl = DataConDecl (Name DataCon) (Embed (Bind [Name Type] ([Constraint], [Type], Type)))
   deriving (Show, Generic, Typeable)
 
-data FFunDefs = FFunDefs (Bind (Rec [(Name FTerm, Embed FTerm)]) FTerm)
+data FFunDefs = FFunDefs (Bind (Rec [(Name FTerm, Embed Type, Embed FTerm)]) FTerm)
   deriving (Show, Generic, Typeable)
 
 data FProgram = FProgram (Bind (Rec [TypeDecl]) FFunDefs)
