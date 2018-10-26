@@ -1,0 +1,38 @@
+data Bool : Type where
+| T : Bool
+end
+
+data Nat : Type where
+| Z : Nat
+| S : Nat -> Nat
+end
+
+data Expr : Type -> Type where
+| NatLit : Nat -> Expr[Nat]
+| Plus : Expr[Nat] * Expr[Nat] -> Expr[Nat]
+| IfThenElse : forall a. Expr[Bool] * Expr[a] * Expr[a] -> Expr[a]
+| LessThan : Expr[Nat] * Expr[Nat] -> Expr[Bool]
+end
+
+data Id : Type -> Type where
+  | Id : forall a . a -> Id[a]
+end
+
+eval : forall a. Expr[a] -> a =
+  \@a -> \(i:Id[Expr[a]]) ->
+    match i with [a]
+      | Id[b](e) -> 
+      match e with [a]
+        | NatLit(n) -> n
+        | Plus(e1, e2) -> Z()
+        | LessThan(e1, e2)-> T()
+      end
+    end;
+
+eval
+  @Nat
+  IfThenElse[Nat](
+    LessThan(NatLit(Z()), NatLit(S(Z()))),
+    NatLit(Z()),
+    NatLit(S(Z())))
+ 
