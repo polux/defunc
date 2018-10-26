@@ -3,10 +3,6 @@ data Nat : Type where
 | S : Nat -> Nat
 end
 
-data Fun : Type -> Type where
-| Fun : forall a. (a -> a) -> Fun[a]
-end
-
 data Id : Type -> Type where
 | Id : forall a. a -> Id[a]
 end
