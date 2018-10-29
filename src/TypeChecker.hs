@@ -25,7 +25,7 @@ import Unbound.Generics.LocallyNameless
 import qualified Unbound.Generics.LocallyNameless.Internal.Fold as U
 import Control.Exception.Base (assert)
 import Control.Monad.Loops (allM)
-import Debug.Trace
+import qualified Data.Map as M
 
 type DataConSignature = Bind Alphas (Delta, [Type], Type)
 type Sigma = [(Name DataCon, DataConSignature)]
@@ -58,8 +58,13 @@ typeCheckFTerm
   -> Gamma
   -> FTerm
   -> m Type
-typeCheckFTerm sigma alphas delta gamma t = check t
+typeCheckFTerm sigma alphas delta gamma t = checkNf t
  where
+  checkNf t = do
+    mgu <- unify alphas delta
+    ty <- check t
+    return (substs mgu ty)
+
   check (FVar x) = lookupType gamma x
   check (FLam b) = do
     ((p, unembed->ty), t) <- unbind b
@@ -75,6 +80,7 @@ typeCheckFTerm sigma alphas delta gamma t = check t
     ty <- typeCheckFTerm sigma (tyvar : alphas) delta gamma t
     return $ TForall (bind tyvar ty)
   check (FCons con tys ts) = do
+    mgu <- unify alphas delta
     bsig <- lookupDataCon sigma con
     (tvars, (constraints, argTypes, returnType)) <- unbind bsig
     when (length tvars < length tys)
@@ -85,17 +91,18 @@ typeCheckFTerm sigma alphas delta gamma t = check t
          (throwError (show con ++ " is applied to too many arguments"))
     when (length argTypes > length ts)
          (throwError (show con ++ " is not applied to enough arguments"))
-    let sub = zip tvars tys
+    let sub = zip tvars (substs mgu tys)
         constraints' = substs sub constraints
         argTypes' = substs sub argTypes
         returnType' = substs sub returnType
-    tsTypes <- mapM check ts
-    checkEntailsAll alphas delta constraints'
+    tsTypes <- mapM checkNf ts
+    checkEqTypesAll alphas delta constraints'
     zipWithM_ (checkEqTypes alphas delta) tsTypes argTypes'
     return returnType'
   check (FApp t1 t2) = do
-    ty1 <- check t1
-    ty2 <- check t2
+    ty1 <- checkNf t1
+    ty2 <- checkNf t2
+    sigma <- unify alphas delta
     case ty1 of
       TCons con [u1, u2] | con == string2Name "->" -> do
         checkEqTypes alphas delta u1 ty2
@@ -109,7 +116,7 @@ typeCheckFTerm sigma alphas delta gamma t = check t
         )
   check (FTApp t ty) = do
     checkKind alphas ty KType
-    tty <- check t
+    tty <- checkNf t
     case tty of
       TForall b -> do
         (tvar, retType) <- unbind b
@@ -123,7 +130,7 @@ typeCheckFTerm sigma alphas delta gamma t = check t
         ++ toString tty
         )
   check (FMatch returnType t rules) = do
-    tty <- check t
+    tty <- checkNf t
     tys <- checkRules sigma alphas delta gamma tty returnType rules
     return returnType
 
@@ -153,7 +160,7 @@ checkRule
 checkRule sigma alphas delta gamma patternType expectedType (FRule b) = do
   (p, t) <- unbind b
   (alphas', delta', gamma') <- typeCheckPattern sigma alphas p patternType
-  inferredType <- typeCheckFTerm sigma (alphas ++ alphas') (delta ++ delta') (gamma ++ gamma') t
+  inferredType <- typeCheckFTerm sigma (alphas'++ alphas) (delta' ++ delta) (gamma' ++ gamma) t
   checkEqTypes (alphas'++alphas) (delta'++delta) inferredType expectedType
 
 typeCheckPattern
@@ -206,39 +213,7 @@ checkDef
   -> m ()
 checkDef sigma alphas delta gamma (x, ty, t) = do
   ty' <- typeCheckFTerm sigma alphas delta gamma t
-  eq <- entails alphas delta ty ty'
-  if eq
-    then return ()
-    else throwError
-      (show x
-      ++ " does not have type "
-      ++ toString ty
-      ++ ", it has type "
-      ++ toString ty'
-      )
-
-checkEqTypes
-  :: (MonadError String m, Fresh m) => Alphas -> Delta -> Type -> Type -> m ()
-checkEqTypes alphas delta ty1 ty2 = do
-  eq <- entails alphas delta ty1 ty2
-  if eq
-    then return ()
-    else throwError
-      ("type "
-      ++ toString ty1
-      ++ " is not equal to "
-      ++ toString ty2
-      ++ " under the assumptions "
-      ++ show delta
-      )
-
-checkEntailsAll
-  :: (MonadError String m, Fresh m) => Alphas -> Delta -> Delta -> m ()
-checkEntailsAll alphas delta1 delta2 = do
-  ok <- entailsAll alphas delta1 delta2
-  if ok
-    then return ()
-    else throwError (show delta1 ++ " does not entail " ++ show delta2)
+  checkEqTypes alphas delta ty ty'
 
 lookupDataCon
   :: MonadError String m => Sigma -> Name DataCon -> m DataConSignature
@@ -255,49 +230,49 @@ lookupType gamma x = maybe
   (lookup x gamma)
 
 
-entailsAll :: Fresh m => Alphas -> Delta -> Delta -> m Bool
-entailsAll alphas delta delta' = allM entailsConstraint delta'
+checkEqTypesAll :: (MonadError String m, Fresh m) => Alphas -> Delta -> Delta -> m ()
+checkEqTypesAll alphas delta delta' = mapM_ entailsConstraint delta'
  where
-  entailsConstraint (ty1 :~: ty2) = entails alphas delta ty1 ty2
+  entailsConstraint (ty1 :~: ty2) = checkEqTypes alphas delta ty1 ty2
 
-entails :: Fresh m => Alphas -> Delta -> Type -> Type -> m Bool
-entails alphas delta ty1 ty2 | any conflict delta = return True
-                             | any occurCheck delta = return True
-                             | otherwise = entails' alphas delta ty1 ty2
+checkEqTypes :: (MonadError String m, Fresh m) => Alphas -> Delta -> Type -> Type -> m ()
+checkEqTypes alphas delta ty1 ty2 = do
+  mgu <- unify alphas delta
+  if aeq (substs mgu ty1) (substs mgu ty2)
+    then return ()
+    else throwError ("constraints " ++ show delta ++ " do not imply " ++ show (ty1 :~: ty2))
+
+unify
+  :: (MonadError String m, Fresh m) => Alphas -> Delta -> m [(Name Type, Type)]
+unify alphas delta = M.toList <$> unify' M.empty delta
  where
-  conflict (TCons tyc1 _ :~: TCons tyc2 _) = not (tyc1 `aeq` tyc2)
-  conflict _ = False
+  throwCannotUnify s = throwError (s ++ ": cannot unify " ++ show delta)
 
-  occurCheck (TVar a :~: ty) | not (isTVar ty) && a `elem` U.toListOf fv ty =
-    True
-  occurCheck (ty :~: TVar a) = occurCheck (TVar a :~: ty)
-  occurCheck _ = False
+  unify' s [] = return s
+  unify' s (ty1 :~: ty2 : delta) = unify'' s (apply s ty1) (apply s ty2) delta
 
-  isTVar (TVar _) = True
-  isTVar _ = False
-
-  entails' :: Fresh m => Alphas -> Delta -> Type -> Type -> m Bool
-  entails' alphas [] ty1 ty2 | aeq ty1 ty2 = return (kindCheck alphas ty1 KType)
-  entails' alphas (TVar a :~: TVar b : delta) ty1 ty2 | a == b =
-    entails' alphas delta ty1 ty2
-  -- we know that ty does not contain a by IH
-  entails' alphas (TVar a :~: ty : delta) ty1 ty2 =
-    entails alphas (subst a ty delta) (subst a ty ty1) (subst a ty ty2)
-  -- we know that ty does not contain a by IH
-  entails' alphas (ty :~: TVar a : delta) ty1 ty2 =
-    entails alphas (subst a ty delta) (subst a ty ty1) (subst a ty ty2)
-  -- we know that tyc1 == tyc2 by IH
-  entails' alphas (TCons tyc1 ts1 :~: TCons tyc2 ts2 : delta) ty1 ty2 = assert
-    (tyc1 == tyc2)
-    (entails alphas delta' ty1 ty2)
-    where delta' = (zipWith (:~:) ts1 ts2) ++ delta
-  entails' alphas (TForall b1 :~: TForall b2 : delta) ty1 ty2 = do
-    tyc <- fresh (string2Name "C")
-    let ty = TCons tyc (map TVar alphas)
+  unify'' s (TVar a) (TVar b) delta
+    | a == b = unify' s delta
+    | a < b = unify' (extend s b (TVar a)) delta
+    | otherwise = unify' (extend s a (TVar b)) delta
+  unify'' s (TVar a) ty delta
+    | a `notElem` U.toListOf fv ty = unify' (extend s a ty) delta
+    | otherwise = throwCannotUnify "occur check"
+  unify'' s ty (TVar a) delta = unify'' s (TVar a) ty delta
+  unify'' s (TCons c1 tys1) (TCons c2 tys2) delta
+    | c1 == c2 && length tys1 == length tys2 = unify' s (zipWith (:~:) tys1 tys2 ++ delta)
+    | otherwise = throwCannotUnify "conflict"
+  unify'' s (TForall b1) (TForall b2) delta = do
+    con <- fresh (string2Name "C")
+    let ty = TCons con (map TVar alphas)
     (a1, u1) <- unbind b1
     (a2, u2) <- unbind b2
-    entails alphas (subst a1 ty u1 :~: subst a2 ty u2 : delta) ty1 ty2
-  entails' _ _ _ _ = return False
+    unify' s (subst a1 ty u1 :~: subst a2 ty u2 : delta)
+
+  extend s a ty = M.insert a ty (M.map (subst a ty) s)
+
+  apply s x = substs (M.toList s) x
+
 
 kindCheck :: Alphas -> Type -> Kind -> Bool
 kindCheck _ _ _ = True
