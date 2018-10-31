@@ -112,7 +112,7 @@ typeCheckFTerm sigma alphas delta gamma t = checkNf t
         ++ " cannot be applied: it has type "
         ++ toString ty1
         ++ " under the assumptions "
-        ++ show delta
+        ++ toString delta
         )
   check (FTApp t ty) = do
     checkKind alphas ty KType
@@ -240,13 +240,13 @@ checkEqTypes alphas delta ty1 ty2 = do
   mgu <- unify alphas delta
   if aeq (substs mgu ty1) (substs mgu ty2)
     then return ()
-    else throwError ("constraints " ++ show delta ++ " do not imply " ++ show (ty1 :~: ty2))
+    else throwError ("constraints " ++ toString delta ++ " do not imply " ++ toString (ty1 :~: ty2))
 
 unify
   :: (MonadError String m, Fresh m) => Alphas -> Delta -> m [(Name Type, Type)]
 unify alphas delta = M.toList <$> unify' M.empty delta
  where
-  throwCannotUnify s = throwError (s ++ ": cannot unify " ++ show delta)
+  throwCannotUnify s = throwError (s ++ ": cannot unify " ++ toString delta)
 
   unify' s [] = return s
   unify' s (ty1 :~: ty2 : delta) = unify'' s (apply s ty1) (apply s ty2) delta
@@ -281,4 +281,4 @@ checkKind :: MonadError String m => Alphas -> Type -> Kind -> m ()
 checkKind alphas ty k =
   if kindCheck alphas ty k
     then return ()
-    else throwError ("type " ++ toString ty ++ " does not have kind " ++ show k)
+    else throwError ("type " ++ toString ty ++ " does not have kind " ++ toString k)

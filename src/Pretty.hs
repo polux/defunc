@@ -181,6 +181,9 @@ prettyKind par (KArrow ks k) =
     D.<+> prettyKind False k
   where sepByStar = D.encloseSep mempty mempty " * "
 
+instance D.Pretty Kind where
+  pretty k = prettyKind False k
+
 prettyType :: LFresh m => Name TyCon -> Bool -> Type -> m (D.Doc a)
 prettyType arName par ty = prettyArrows par (arrows ty)
   where
@@ -375,6 +378,15 @@ prettyFProgram arName (FProgram b) =
 
 instance D.Pretty FProgram where
   pretty p = runLFreshM (prettyFProgram (string2Name "->") p)
+
+prettyConstraint :: LFresh m => Name TyCon -> Constraint -> m (D.Doc a)
+prettyConstraint arName (ty1 :~: ty2) = do
+  ty1' <- prettyType arName False ty1
+  ty2' <- prettyType arName False ty2
+  return $ ty1' D.<+> "~" D.<+> ty2'
+
+instance D.Pretty Constraint where
+  pretty c =  runLFreshM (prettyConstraint (string2Name "->") c)
 
 parens :: Bool -> D.Doc a -> D.Doc a
 parens b d = if b then D.parens d else d
