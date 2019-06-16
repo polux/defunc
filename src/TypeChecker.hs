@@ -1,4 +1,3 @@
-{-# LANGUAGE ViewPatterns #-}
 -- Copyright 2018 Google LLC
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,15 +13,17 @@
 -- limitations under the License.
 
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module TypeChecker where
 
 import AST
 import Pretty
+import Unification
 
 import Control.Monad.Except
 import Unbound.Generics.LocallyNameless
-import qualified Unbound.Generics.LocallyNameless.Internal.Fold as U
+import qualified Unbound.Generics.LocallyNameless.Internal.Fold as UI
 import Control.Exception.Base (assert)
 import Control.Monad.Loops (allM)
 import qualified Data.Map as M
@@ -241,38 +242,6 @@ checkEqTypes alphas delta ty1 ty2 = do
   if aeq (substs mgu ty1) (substs mgu ty2)
     then return ()
     else throwError ("constraints " ++ toString delta ++ " do not imply " ++ toString (ty1 :~: ty2))
-
-unify
-  :: (MonadError String m, Fresh m) => Alphas -> Delta -> m [(Name Type, Type)]
-unify alphas delta = M.toList <$> unify' M.empty delta
- where
-  throwCannotUnify s = throwError (s ++ ": cannot unify " ++ toString delta)
-
-  unify' s [] = return s
-  unify' s (ty1 :~: ty2 : delta) = unify'' s (apply s ty1) (apply s ty2) delta
-
-  unify'' s (TVar a) (TVar b) delta
-    | a == b = unify' s delta
-    | a < b = unify' (extend s b (TVar a)) delta
-    | otherwise = unify' (extend s a (TVar b)) delta
-  unify'' s (TVar a) ty delta
-    | a `notElem` U.toListOf fv ty = unify' (extend s a ty) delta
-    | otherwise = throwCannotUnify "occur check"
-  unify'' s ty (TVar a) delta = unify'' s (TVar a) ty delta
-  unify'' s (TCons c1 tys1) (TCons c2 tys2) delta
-    | c1 == c2 && length tys1 == length tys2 = unify' s (zipWith (:~:) tys1 tys2 ++ delta)
-    | otherwise = throwCannotUnify "conflict"
-  unify'' s (TForall b1) (TForall b2) delta = do
-    con <- fresh (string2Name "C")
-    let ty = TCons con (map TVar alphas)
-    (a1, u1) <- unbind b1
-    (a2, u2) <- unbind b2
-    unify' s (subst a1 ty u1 :~: subst a2 ty u2 : delta)
-
-  extend s a ty = M.insert a ty (M.map (subst a ty) s)
-
-  apply s x = substs (M.toList s) x
-
 
 kindCheck :: Alphas -> Type -> Kind -> Bool
 kindCheck _ _ _ = True
