@@ -12,6 +12,19 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+
+data List : Type -> Type where
+| Nil : forall a. List[a]
+| Cons : forall a. a * List[a] -> List[a]
+end
+
+data List2 : Type -> Type where
+| Nil : forall a. List[a]
+| Cons : forall a. a * List[a] -> List[a]
+end
+
+
+
 append(xs, ys) =
   match xs with
   | Nil() -> ys

@@ -44,6 +44,9 @@ import Unbound.Generics.LocallyNameless
 data FunDefs = FunDefs (Bind (Rec [(Name Term, Embed Term)]) Term)
   deriving (Show, Generic, Typeable)
 
+data Program = Program (Bind (Rec [TypeDecl]) FunDefs)
+  deriving (Show, Generic, Typeable)
+
 unmakeFunDefs :: Fresh m => FunDefs -> m ([(Name Term, Term)], Term)
 unmakeFunDefs (FunDefs b) = do
   (eqs, t) <- unbind b
@@ -55,7 +58,7 @@ makeFunDefs eqs t = FunDefs $ bind (rec (map wrap eqs)) t
   where wrap (x, u) = (x, embed u)
 
 data Pattern
-  = PCons String [Pattern]
+  = PCons (Embed (Name DataCon)) [Pattern]
   | PVar (Name Term)
   | PLit Int
   deriving (Show, Generic, Typeable)
@@ -77,7 +80,7 @@ data Term
   | Lam (Bind Pattern Term)
   | Let (Bind (Pattern, Embed Term) Term)
   | Lit Int
-  | Cons String [Term]
+  | Cons (Name DataCon) [Term]
   | Match Term Rules
   deriving (Show, Generic, Typeable)
 
@@ -115,8 +118,8 @@ unApp :: Term -> (Term, [Term])
 unApp (App t u) = let (t', ts) = unApp t in (t', ts++[u])
 unApp t = (t, [])
 
-pair x y = Cons "" [x, y]
-ppair x y = PCons "" [x, y]
+pair x y = Cons (string2Name "") [x, y]
+ppair x y = PCons (embed (string2Name "")) [x, y]
 tuple xs = foldl1 pair xs
 ptuple xs = foldl1 ppair xs
 
@@ -124,7 +127,7 @@ type Env = [(Name Term, Embed Val)]
 
 data Val
   = VInt Int
-  | VCons String [Val]
+  | VCons (Name DataCon) [Val]
   | VClosure (Bind Env Term)
   deriving (Show, Generic, Typeable)
 

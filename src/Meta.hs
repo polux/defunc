@@ -34,30 +34,32 @@ import TypeChecker
 import Control.Monad.Except
 import Text.Megaparsec (parseErrorPretty)
 import Data.Text.Prettyprint.Doc (Pretty)
+import Text.Show.Pretty (ppShow)
 
 data MetaType :: * -> * where
   MString :: MetaType String
-  MFunDefs :: MetaType FunDefs
+  MProgram :: MetaType Program
   MFProgram :: MetaType FProgram
   MVal :: MetaType Val
   MType :: MetaType Type
 
 instance Show (MetaType a) where
   show MString = "String"
-  show MFunDefs = "FunDefs"
+  show MProgram = "Program"
   show MFProgram = "FProgram"
   show MVal = "Val"
   show MType = "Type"
 
 data MetaExpr :: * -> * -> * where
   Pipe :: MetaExpr a b -> MetaExpr b c -> MetaExpr a c
-  ParseFunDefs :: MetaExpr String FunDefs
+  ParseProgram :: MetaExpr String Program
   ParseFProgram :: MetaExpr String FProgram
-  Cps :: MetaExpr FunDefs FunDefs
-  Defunc :: MetaExpr FunDefs FunDefs
-  Eval :: MetaExpr FunDefs Val
-  Pretty :: Pretty a => MetaExpr a String
+  Cps :: MetaExpr Program Program
+  Defunc :: MetaExpr Program Program
+  Eval :: MetaExpr Program Val
   TypeCheck :: MetaExpr FProgram Type
+  Pretty :: Pretty a => MetaExpr a String
+  Dump :: Show a => MetaExpr a String
 
 parseMeta :: MonadError String m => [String] -> m (MetaExpr String String)
 parseMeta es = go MString es
@@ -67,25 +69,28 @@ parseMeta es = go MString es
     => MetaType a
     -> [String]
     -> m (MetaExpr a String)
-  go MString ("parse" : es) = Pipe ParseFunDefs <$> go MFunDefs es
+  go MString ("parse" : es) = Pipe ParseProgram <$> go MProgram es
   go MString ("parse_f" : es) = Pipe ParseFProgram <$> go MFProgram es
-  go MFunDefs ("cps" : es) = Pipe Cps <$> go MFunDefs es
-  go MFunDefs ("defunc" : es) = Pipe Defunc <$> go MFunDefs es
-  go MFunDefs ("eval" : es) = Pipe Eval <$> go MVal es
+  go MProgram ("cps" : es) = Pipe Cps <$> go MProgram es
+  go MProgram ("defunc" : es) = Pipe Defunc <$> go MProgram es
+  go MProgram ("eval" : es) = Pipe Eval <$> go MVal es
   go MFProgram ("typecheck" : es) = Pipe TypeCheck <$> go MType es
+  go MProgram ("dump" : es) = Pipe Dump <$> go MString es
+  go MFProgram ("dump" : es) = Pipe Dump <$> go MString es
+  go MVal ("dump" : es) = Pipe Dump <$> go MString es
   go mt (e : _) =
     throwError $ "cannot apply " ++ e ++ " to meta values of type " ++ show mt
-  go MFunDefs [] = return Pretty
+  go MProgram [] = return Pretty
   go MFProgram [] = return Pretty
   go MVal [] = return Pretty
   go MType [] = return Pretty
-  go mt [] = throwError $ "cannot pretty print meta values of type " ++ show mt
+  go MString [] = return Pretty
 
 evalMeta :: MonadError String m => MetaExpr a b -> a -> m b
 evalMeta (Pipe e1 e2) x = evalMeta e1 x >>= evalMeta e2
-evalMeta ParseFunDefs s = case parseFunDefs s of
+evalMeta ParseProgram s = case parseProgram s of
   Left e -> throwError (parseErrorPretty e)
-  Right defs -> return defs
+  Right prog -> return prog
 evalMeta ParseFProgram s = case parseFProgram s of
   Left e -> throwError (parseErrorPretty e)
   Right prog -> return prog
@@ -96,4 +101,5 @@ evalMeta Eval defs = case eval defs of
   Right v -> return v
 evalMeta TypeCheck prog = typeCheck prog
 evalMeta Pretty x = return (toString x)
+evalMeta Dump x = return (ppShow x)
 

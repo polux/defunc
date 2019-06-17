@@ -17,8 +17,14 @@ module CPS (cps) where
 import AST
 import Unbound.Generics.LocallyNameless
 
-cps :: FunDefs -> FunDefs
-cps defs = runFreshM $ do
+cps :: Program -> Program
+cps (Program b) = runFreshM $ do
+  (decls, defs) <- unbind b
+  defs' <- fundefsCps defs
+  return (Program (bind decls defs'))
+
+fundefsCps :: Fresh m => FunDefs -> m FunDefs
+fundefsCps defs = do
   (eqs, t) <- unmakeFunDefs defs
   let (fs, ts) = unzip eqs
   ts' <- mapM rhsCps ts

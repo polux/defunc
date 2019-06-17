@@ -12,7 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-module Parser (parseFunDefs, parseFProgram) where
+module Parser (parseProgram, parseFProgram) where
 
 import AST
 import Control.Arrow ((***))
@@ -75,6 +75,8 @@ constructor = lexeme (try p)
 
 {- UNTYPED TERMS -}
 
+constructorName = string2Name <$> constructor
+
 lterm = foldl1 App <$> some atom
 
 atom =
@@ -101,7 +103,7 @@ tupleOrparenthesizedTerm = do
     _ <- s_rparen
     return $ tuple (t : ts)
 
-constructorApp = Cons <$> constructor <*> parens (lterm `sepBy` s_comma)
+constructorApp = Cons <$> constructorName <*> parens (lterm `sepBy` s_comma)
 
 lambda = mkLam <$> s_lambda <*> some pattern <*> s_arrow <*> lterm
   where mkLam _ ids _ t = foldr plam t ids
@@ -117,23 +119,23 @@ num = Lit <$> lexeme L.decimal
 
 list = mkList <$> squares (lterm `sepBy` s_comma)
   where mkList xs = foldr mkCons mkNil xs
-        mkCons x y = Cons "Cons" [x, y]
-        mkNil = Cons "Nil" []
+        mkCons x y = Cons (string2Name "Cons") [x, y]
+        mkNil = Cons (string2Name "Nil") []
 
 pattern = patternLit <|> patternList <|> patternApp <|> (pvar <$> identifier)
 
 patternLit = PLit <$> lexeme L.decimal
 
-patternApp = mkCons <$> optional constructor <*> parens (pattern `sepBy` s_comma)
+patternApp = mkCons <$> optional constructorName <*> parens (pattern `sepBy` s_comma)
  where
   mkCons Nothing [p] = p
   mkCons Nothing ps = ptuple ps
-  mkCons (Just c) ps = PCons c ps
+  mkCons (Just c) ps = PCons (embed c) ps
 
 patternList = mkList <$> squares (pattern `sepBy` s_comma)
   where mkList xs = foldr mkCons mkNil xs
-        mkCons x y = PCons "Cons" [x, y]
-        mkNil = PCons "Nil" []
+        mkCons x y = PCons (embed (string2Name "Cons")) [x, y]
+        mkNil = PCons (embed (string2Name "Nil")) []
 
 match = mkMatch <$> s_match <*> lterm <*> s_with <*> many rule <*> s_end
   where mkMatch _ t _ rs _ = Match t rs
@@ -148,8 +150,12 @@ fundefs = mkEqs <$> try eq `endBy` s_semi <*> lterm
  where
    mkEqs eqs t = makeFunDefs [(string2Name f, u) | (f, u) <- eqs] t
 
-parseFunDefs :: String -> Either (ParseError Char Void) FunDefs
-parseFunDefs s = parse (sc *> (fundefs <* eof)) "" s
+program = mkProg <$> many typeDecl <*> fundefs
+  where mkProg decls defs = Program (bind (rec decls) defs)
+
+parseProgram :: String -> Either (ParseError Char Void) Program
+parseProgram s = parse (sc *> (program <* eof)) "" s
+
 
 {- SYSTEM F TERMS -}
 

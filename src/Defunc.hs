@@ -30,18 +30,23 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Safe (maximumDef)
 
-defunctionalize :: FunDefs -> FunDefs
-defunctionalize defs = go (saturateFunDefs defs)
+defunctionalize :: Program -> Program
+defunctionalize (Program b) = runFreshM $ do
+  (decls, defs) <- unbind b
+  defs' <- defunctionalizeFundefs defs
+  return (Program (bind decls defs'))
+
+defunctionalizeFundefs :: Fresh m => FunDefs -> m FunDefs
+defunctionalizeFundefs defs = go (saturateFunDefs defs)
  where
-  go defs =
-    runFreshM $ do
-      (eqs, t) <- unmakeFunDefs defs
-      let (fs, ts) = unzip eqs
-      applyName <- fresh (string2Name "apply")
-      argName <- fresh (string2Name "x")
-      (t':ts', rules) <- defunc (arities eqs) applyName argName (t:ts)
-      applyTerm <- mkApplyFunction argName (S.toList rules)
-      return $ makeFunDefs (zip (applyName:fs) (applyTerm:ts')) t'
+  go defs = do
+    (eqs, t) <- unmakeFunDefs defs
+    let (fs, ts) = unzip eqs
+    applyName <- fresh (string2Name "apply")
+    argName <- fresh (string2Name "x")
+    (t':ts', rules) <- defunc (arities eqs) applyName argName (t:ts)
+    applyTerm <- mkApplyFunction argName (S.toList rules)
+    return $ makeFunDefs (zip (applyName:fs) (applyTerm:ts')) t'
   mkApplyFunction arg rules = do
     f <- fresh (string2Name "f")
     return $ plam (ppair (PVar f) (PVar arg)) (Match (Var f) rules)
@@ -115,7 +120,7 @@ type PreRules = M.Map PreRule Int
 defunc :: Fresh m => Arities -> Name Term -> Name Term -> [Term] -> m ([Term], S.Set Rule)
 defunc fs apply arg ts = evalStateT (runWriterT (mapM (defuncFun fs apply arg) ts)) M.empty
 
-getConstructorName :: MonadState PreRules m => PreRule -> m String
+getConstructorName :: MonadState PreRules m => PreRule -> m (Name DataCon)
 getConstructorName pr = fmap mkName $ do
   prs <- get
   case M.lookup pr prs of
@@ -124,7 +129,7 @@ getConstructorName pr = fmap mkName $ do
       let n = maximumDef 0 (M.elems prs) + 1
       put (M.insert pr n prs)
       return n
-  where mkName n = "C" ++ show n
+  where mkName n = string2Name ("C" ++ show n)
 
 freeNames :: Term -> [Name Term]
 freeNames t = S.toList (S.fromList (U.toListOf fv t))
@@ -170,7 +175,7 @@ defuncTerm fs apply arg term = go term
     let fns = freeNames t \\ M.keys fs
     let pr = PreRule (bind (fns, p) e')
     c <- getConstructorName pr
-    let pclos = PCons c (map PVar fns)
+    let pclos = PCons (embed c) (map PVar fns)
     let rhs = case p of
                 (PVar x) -> subst x (Var arg) e'
                 _ -> Let (bind (p, embed (Var arg)) e')

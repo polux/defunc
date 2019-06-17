@@ -14,6 +14,7 @@
 
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Pretty (toString) where
 
@@ -21,21 +22,18 @@ import AST
 import qualified Data.Text.Prettyprint.Doc as D
 import Data.Text.Prettyprint.Doc.Render.String (renderString)
 import qualified Data.Map as M
-import Unbound.Generics.LocallyNameless (string2Name, Name, unrec, LFresh, lunbind, runLFreshM, unembed)
+import Unbound.Generics.LocallyNameless (string2Name, Name, unrec, LFresh, lunbind, runLFreshM, unembed, name2String)
 import Control.Monad (zipWithM)
 
-prettyPattern :: LFresh m => Pattern -> m (D.Doc a)
-prettyPattern (PVar x) = return $ D.viaShow x
-prettyPattern (PLit i) = return $ D.viaShow i
-prettyPattern p@(PCons "" _) = do
-  ps' <- mapM prettyPattern (peel p)
-  return $ D.align (D.tupled ps')
- where
-  peel (PCons "" [p1, p2]) = peel p1 ++ [p2]
-  peel p = [p]
-prettyPattern (PCons c ps) = do
-  ps' <- mapM prettyPattern ps
-  return $ D.pretty c <> D.align (D.tupled ps')
+prettyProgram :: LFresh m => Name TyCon -> Program -> m (D.Doc a)
+prettyProgram arName (Program b) =
+  lunbind b $ \(decls, defs) -> do
+    decls' <- prettyTypeDecls arName (unrec decls)
+    defs' <- prettyFunDefs defs
+    return $ decls' <> defs'
+
+instance D.Pretty Program where
+  pretty p = runLFreshM (prettyProgram (string2Name "->") p)
 
 prettyFunDefs :: LFresh m => FunDefs -> m (D.Doc a)
 prettyFunDefs (FunDefs b) =
@@ -58,6 +56,19 @@ prettyFunDefs (FunDefs b) =
 
 instance D.Pretty FunDefs where
   pretty fs = runLFreshM (prettyFunDefs fs)
+
+prettyPattern :: LFresh m => Pattern -> m (D.Doc a)
+prettyPattern (PVar x) = return $ D.viaShow x
+prettyPattern (PLit i) = return $ D.viaShow i
+prettyPattern p@(PCons (name2String.unembed->"") _) = do
+  ps' <- mapM prettyPattern (peel p)
+  return $ D.align (D.tupled ps')
+ where
+  peel (PCons (name2String.unembed->"") [p1, p2]) = peel p1 ++ [p2]
+  peel p = [p]
+prettyPattern (PCons c ps) = do
+  ps' <- mapM prettyPattern ps
+  return $ D.viaShow c <> D.align (D.tupled ps')
 
 prettyTerm :: LFresh m => Bool -> Term -> m (D.Doc a)
 prettyTerm par t = prettyApps par (apps t)
@@ -95,15 +106,15 @@ prettyTerm par t = prettyApps par (apps t)
     prettyAtom _ t | Just ts <- asList t = do
       ts' <- mapM (prettyTerm False) ts
       return $ D.list ts'
-    prettyAtom _ t@(Cons "" _) = do
+    prettyAtom _ t@(Cons (name2String->"") _) = do
       ts' <- mapM (prettyTerm False) (peel t)
       return $ D.align (D.tupled ts')
      where
-      peel (Cons "" [t1, t2]) = peel t1 ++ [t2]
+      peel (Cons (name2String->"") [t1, t2]) = peel t1 ++ [t2]
       peel t = [t]
     prettyAtom _ (Cons c ts) = do
       ts' <- traverse (prettyTerm False) ts
-      return $ D.pretty c <> D.align (D.tupled ts')
+      return $ D.viaShow c <> D.align (D.tupled ts')
     prettyAtom par (Match t rs) = do
       t' <- prettyTerm False t
       rs' <- prettyRules rs
@@ -132,8 +143,8 @@ prettyTerm par t = prettyApps par (apps t)
     apps t = [t]
 
     asList :: Term -> Maybe [Term]
-    asList (Cons "Nil" []) = Just []
-    asList (Cons "Cons" [x, y]) = (x:) <$> asList y
+    asList (Cons (name2String->"Nil") []) = Just []
+    asList (Cons (name2String->"Cons") [x, y]) = (x:) <$> asList y
     asList _ = Nothing
 
 instance D.Pretty Term where
@@ -144,18 +155,18 @@ prettyVal t | Just ts <- asList t = do
   ts' <- mapM prettyVal ts
   return $ D.list ts'
  where
-  asList (VCons "Nil" []) = Just []
-  asList (VCons "Cons" [x, y]) = (x:) <$> asList y
+  asList (VCons (name2String->"Nil") []) = Just []
+  asList (VCons (name2String->"Cons") [x, y]) = (x:) <$> asList y
   asList _ = Nothing
-prettyVal t@(VCons "" _) = do
+prettyVal t@(VCons (name2String->"") _) = do
   ts' <- mapM prettyVal (peel t)
   return $ D.align (D.tupled ts')
  where
-  peel (VCons "" [t1, t2]) = peel t1 ++ [t2]
+  peel (VCons (name2String->"") [t1, t2]) = peel t1 ++ [t2]
   peel t = [t]
 prettyVal (VCons c ts) = do
   ts' <- traverse prettyVal ts
-  return $ D.pretty c <> D.align (D.tupled ts')
+  return $ D.viaShow c <> D.align (D.tupled ts')
 prettyVal (VInt i) = return (D.viaShow i)
 prettyVal (VClosure b) =
   lunbind b $ \(env, t) -> do

@@ -14,6 +14,7 @@
 
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Eval(Val(..), eval) where
 
@@ -23,8 +24,13 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import qualified Data.Map as M
 
-eval :: FunDefs -> Either String Val
-eval defs = runFreshM . runExceptT $ mdo
+eval :: Program -> Either String Val
+eval (Program b) = runFreshM . runExceptT $ do
+  (decls, defs) <- unbind b
+  evalFunDefs defs
+
+evalFunDefs :: (Fresh m, MonadError String m, MonadFix m) => FunDefs -> m Val
+evalFunDefs defs = mdo
   (eqs, t) <- unmakeFunDefs defs
   let (fs, ts) = unzip eqs
   env <- do
@@ -39,7 +45,7 @@ match p v =
     Just env -> return env
 
 match' :: Pattern -> Val -> Maybe Env
-match' (PCons c ps) (VCons c' vs)
+match' (PCons (unembed->c) ps) (VCons c' vs)
   | c == c' = concat <$> zipWithM match' ps vs
   | otherwise = Nothing
 match' (PLit i) (VInt j)
