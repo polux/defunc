@@ -1,0 +1,13 @@
+data Foo : Type where
+end
+
+data List : Type -> Type where
+| Nil : forall a. List[a]
+| Cons : forall a. a * List[a] -> List[a]
+end
+
+data Test : Type where
+| C : forall a. List[a] -> Test
+end
+
+C[Foo](Nil[Foo]())
