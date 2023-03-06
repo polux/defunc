@@ -1,0 +1,28 @@
+-- Copyright 2018 Google LLC
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--      http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+eval (e, env) =
+  match e with
+  | Lit(x) -> VLit(x)
+  | App(f, a) ->
+      let vf = eval(f, env)
+      in match vf with
+         | VClosure(Lam(x, b), env') ->
+            eval(b, Extend(env', x, eval(a, env)))
+      end
+  | Lam(x, b) -> VClosure(Lam(x, b), env)
+  | Var(x) -> Lookup(x, env)
+  end;
+
+eval (Lam(1, Var(1)), EmptyEnv())
