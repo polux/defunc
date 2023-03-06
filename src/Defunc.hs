@@ -39,7 +39,8 @@ defunctionalize defs = go (saturateFunDefs defs)
       let (fs, ts) = unzip eqs
       applyName <- fresh (string2Name "apply")
       argName <- fresh (string2Name "x")
-      (t':ts', rules) <- defunc (arities eqs) applyName argName (t:ts)
+      tsrules <- defunc (arities eqs) applyName argName (t:ts)
+      let (t':ts', rules) = tsrules
       applyTerm <- mkApplyFunction argName (S.toList rules)
       return $ makeFunDefs (zip (applyName:fs) (applyTerm:ts')) t'
   mkApplyFunction arg rules = do

@@ -31,9 +31,9 @@ import Parser
 import Pretty
 
 import Control.Monad.Except
-import Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, Pretty, pretty)
-import Data.Text.Prettyprint.Doc.Render.String (renderString)
-import Text.Megaparsec (parseErrorPretty)
+import Prettyprinter (defaultLayoutOptions, layoutPretty, Pretty, pretty)
+import Prettyprinter.Render.String (renderString)
+import Text.Megaparsec (errorBundlePretty)
 
 data MetaType :: * -> * where
   MString :: MetaType String
@@ -74,7 +74,7 @@ parseMeta es = go MString es
 evalMeta :: MonadError String m => MetaExpr a b -> a -> m b
 evalMeta (Pipe e1 e2) x = evalMeta e1 x >>= evalMeta e2
 evalMeta Parse s = case parseFunDefs s of
-  Left e -> throwError (parseErrorPretty e)
+  Left e -> throwError (errorBundlePretty e)
   Right defs -> return defs
 evalMeta Cps defs = return (cps defs)
 evalMeta Defunc defs = return (defunctionalize defs)

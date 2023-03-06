@@ -20,11 +20,10 @@ constructors and pattern matching. Interesting examples can be found under
 Example usage:
 
 ```
-stack build
-stack exec defunc parse eval < examples/append.lam
-stack exec defunc parse cps < examples/append.lam
-stack exec defunc parse cps defunc < examples/append.lam
-stack exec defunc parse cps defunc eval < examples/append.lam
+cabal run defunc -- parse eval < examples/append.lam
+cabal run defunc -- parse cps < examples/append.lam
+cabal run defunc -- parse cps defunc < examples/append.lam
+cabal run defunc -- parse cps defunc eval < examples/append.lam
 ```
 
 [1]: http://jfla.inria.fr/2014/danvy-ICFP08.pdf

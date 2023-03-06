@@ -15,13 +15,14 @@
 module Parser (parseFunDefs) where
 
 import AST
+import Data.Functor ( ($>) )
 import Data.Void
 import Text.Megaparsec hiding (match)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Unbound.Generics.LocallyNameless (rec, bind, embed, string2Name)
 
-sc = L.space (skipSome spaceChar *> pure ()) lineCmnt blockCmnt
+sc = L.space (skipSome spaceChar $> ()) lineCmnt blockCmnt
  where
   lineCmnt = L.skipLineComment "--"
   blockCmnt = L.skipBlockComment "{-" "-}"
@@ -133,5 +134,5 @@ fundefs = mkEqs <$> try eq `endBy` s_semi <*> lterm
  where
    mkEqs eqs t = makeFunDefs [(string2Name f, u) | (f, u) <- eqs] t
 
-parseFunDefs :: String -> Either (ParseError Char Void) FunDefs
+parseFunDefs :: String -> Either (ParseErrorBundle String Void) FunDefs
 parseFunDefs s = parse (sc *> (fundefs <* eof)) "" s

@@ -70,7 +70,8 @@ evalTerm (App f t) = do
   vt <- evalTerm t
   case vf of
     VClosure b -> do
-      (env, Lam b') <- unbind b
+      envlam <- unbind b
+      let (env, Lam b') = envlam
       (p, u) <- unbind b'
       env' <- match p vt
       local (const (env' ++ env)) (evalTerm u)
