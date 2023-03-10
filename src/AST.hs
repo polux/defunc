@@ -14,6 +14,8 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
 
 module AST where
 
@@ -40,7 +42,7 @@ import Unbound.Generics.LocallyNameless
   , unembed
   , unrec)
 
-data FunDefs = FunDefs (Bind (Rec [(Name Term, Embed Term)]) Term)
+newtype FunDefs = FunDefs (Bind (Rec [(Name Term, Embed Term)]) Term)
   deriving (Show, Generic, Typeable)
 
 unmakeFunDefs :: Fresh m => FunDefs -> m ([(Name Term, Term)], Term)
@@ -61,7 +63,7 @@ data Pattern
 
 type Rules = [Rule]
 
-data Rule = Rule (Bind Pattern Term)
+newtype Rule = Rule (Bind Pattern Term)
   deriving (Show, Generic, Typeable)
 
 instance Eq Rule where
@@ -74,7 +76,7 @@ data Term
   = Var (Name Term)
   | App Term Term
   | Lam (Bind Pattern Term)
-  | Let (Bind (Pattern, (Embed Term)) Term)
+  | Let (Bind (Pattern, Embed Term) Term)
   | Lit Int
   | Cons String [Term]
   | Match Term Rules
