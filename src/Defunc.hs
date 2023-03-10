@@ -14,6 +14,9 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Fuse foldr/map" #-}
+{-# HLINT ignore "Eta reduce" #-}
 
 module Defunc (defunctionalize) where
 
@@ -75,7 +78,7 @@ saturate :: Fresh m => Arities -> Term -> m Term
 saturate fs t = go t
   where
     go t | (Var f, ts) <- unApp t, (Just n) <- M.lookup f fs =
-      if (length ts < n)
+      if length ts < n
         then do
           ts' <- mapM go ts
           etaExpand (app (Var f) ts') (n - length ts)
@@ -100,7 +103,7 @@ saturate fs t = go t
       t' <- go t
       return (Rule (bind p t))
 
-data PreRule = PreRule (Bind ([Name Term], Pattern) Term)
+newtype PreRule = PreRule (Bind ([Name Term], Pattern) Term)
   deriving (Show, Generic, Typeable)
 
 instance Alpha PreRule
@@ -155,7 +158,7 @@ defuncTerm fs apply arg term = go term
   go t@(Var _) = return t
   go t@(Lit _) = return t
   go t | (Var f, ts) <- unApp t, (Just n) <- M.lookup f fs =
-    if (length ts < n)
+    if length ts < n
       then error ("toplevel function application not saturated: " ++ show t)
       else do
         let (args, extraArgs) = splitAt n ts

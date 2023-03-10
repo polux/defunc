@@ -18,8 +18,7 @@
 module Pretty () where
 
 import AST
-import qualified Data.Text.Prettyprint.Doc as D
-import qualified Data.Text.Prettyprint.Doc as D
+import qualified Prettyprinter as D
 import qualified Data.Map as M
 import Unbound.Generics.LocallyNameless (unrec, LFresh, lunbind, runLFreshM, unembed)
 import Control.Monad (zipWithM)
