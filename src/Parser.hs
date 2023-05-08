@@ -16,7 +16,7 @@
 {-# HLINT ignore "Use camelCase" #-}
 {-# HLINT ignore "Eta reduce" #-}
 
-module Parser (parseFunDefs) where
+module Parser (parseTerm, parseFunDefs) where
 
 import AST
 import Data.Functor ( ($>) )
@@ -137,6 +137,10 @@ eq = mkEq <$> identifier <*> many pattern <*> s_equals <*> lterm
 fundefs = mkEqs <$> try eq `endBy` s_semi <*> lterm
  where
    mkEqs eqs t = makeFunDefs [(string2Name f, u) | (f, u) <- eqs] t
+
+
+parseTerm :: String -> Either (ParseErrorBundle String Void) Term
+parseTerm s = parse (sc *> (lterm <* eof)) "" s
 
 parseFunDefs :: String -> Either (ParseErrorBundle String Void) FunDefs
 parseFunDefs s = parse (sc *> (fundefs <* eof)) "" s

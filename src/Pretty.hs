@@ -17,6 +17,7 @@
 
 module Pretty () where
 
+import ANF
 import AST
 import qualified Prettyprinter as D
 import qualified Data.Map as M
@@ -175,4 +176,7 @@ prettyEnv env =
 
 instance D.Pretty Val where
   pretty t = runLFreshM (prettyVal t)
+
+instance D.Pretty AnfTerm where
+  pretty = D.pretty . anfTermToTerm
 

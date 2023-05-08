@@ -133,3 +133,57 @@ data Val
   deriving (Show, Generic, Typeable)
 
 instance Alpha Val
+
+data AnfAtom
+  = AVar (Name Term)
+  | ALam (Bind Pattern AnfTerm)
+  | ALit Int
+  deriving (Show, Generic, Typeable)
+
+data AnfComp
+  = AApp AnfAtom AnfAtom
+  | ACons String [AnfAtom]
+  | AMatch AnfAtom AnfRules
+  deriving (Show, Generic, Typeable)
+
+data AnfTerm
+  = ALet (Bind (Pattern, Embed AnfComp) AnfTerm)
+  | AComp AnfComp
+  | AAtom AnfAtom
+  deriving (Show, Generic, Typeable)
+
+type AnfRules = [AnfRule]
+
+newtype AnfRule = ARule (Bind Pattern AnfTerm)
+  deriving (Show, Generic, Typeable)
+
+
+instance Alpha AnfRule
+instance Alpha AnfAtom
+instance Alpha AnfComp
+instance Alpha AnfTerm
+
+instance Eq AnfRule where
+  (==) = aeq
+
+instance Eq AnfAtom where
+  (==) = aeq
+
+instance Eq AnfComp where
+  (==) = aeq
+
+instance Eq AnfTerm where
+  (==) = aeq
+
+instance Ord AnfAtom where
+  compare = acompare
+
+instance Ord AnfComp where
+  compare = acompare
+
+instance Ord AnfTerm where
+  compare = acompare
+
+instance Ord AnfRule where
+  compare = acompare
+

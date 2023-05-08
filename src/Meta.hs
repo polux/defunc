@@ -34,20 +34,27 @@ import Control.Monad.Except
 import Prettyprinter (defaultLayoutOptions, layoutPretty, Pretty, pretty)
 import Prettyprinter.Render.String (renderString)
 import Text.Megaparsec (errorBundlePretty)
+import ANF (anf)
 
 data MetaType :: * -> * where
   MString :: MetaType String
   MFunDefs :: MetaType FunDefs
+  MTerm :: MetaType Term
+  MAnfTerm :: MetaType AnfTerm
   MVal :: MetaType Val
 
 instance Show (MetaType a) where
   show MString = "String"
   show MFunDefs = "FunDefs"
+  show MTerm = "Term"
+  show MAnfTerm = "AnfTerm"
   show MVal = "Val"
 
 data MetaExpr :: * -> * -> * where
   Pipe :: MetaExpr a b -> MetaExpr b c -> MetaExpr a c
   Parse :: MetaExpr String FunDefs
+  ParseTerm :: MetaExpr String Term
+  Anf :: MetaExpr Term AnfTerm
   Cps :: MetaExpr FunDefs FunDefs
   Defunc :: MetaExpr FunDefs FunDefs
   Eval :: MetaExpr FunDefs Val
@@ -62,6 +69,8 @@ parseMeta es = go MString es
     -> [String]
     -> m (MetaExpr a String)
   go MString ("parse" : es) = Pipe Parse <$> go MFunDefs es
+  go MString ("parse-term" : es) = Pipe ParseTerm <$> go MTerm es
+  go MTerm ("anf" : es) = Pipe Anf <$> go MAnfTerm es
   go MFunDefs ("cps" : es) = Pipe Cps <$> go MFunDefs es
   go MFunDefs ("defunc" : es) = Pipe Defunc <$> go MFunDefs es
   go MFunDefs ("eval" : es) = Pipe Eval <$> go MVal es
@@ -69,6 +78,8 @@ parseMeta es = go MString es
     throwError $ "cannot apply " ++ e ++ " to meta values of type " ++ show mt
   go MFunDefs [] = return Pretty
   go MVal [] = return Pretty
+  go MTerm [] = return Pretty
+  go MAnfTerm [] = return Pretty
   go mt [] = throwError $ "cannot pretty print meta values of type " ++ show mt
 
 evalMeta :: MonadError String m => MetaExpr a b -> a -> m b
@@ -76,6 +87,10 @@ evalMeta (Pipe e1 e2) x = evalMeta e1 x >>= evalMeta e2
 evalMeta Parse s = case parseFunDefs s of
   Left e -> throwError (errorBundlePretty e)
   Right defs -> return defs
+evalMeta ParseTerm s = case parseTerm s of
+  Left e -> throwError (errorBundlePretty e)
+  Right t -> return t
+evalMeta Anf t = return (anf t)
 evalMeta Cps defs = return (cps defs)
 evalMeta Defunc defs = return (defunctionalize defs)
 evalMeta Eval defs = case eval defs of

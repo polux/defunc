@@ -21,7 +21,8 @@ executable defunc
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
-  other-modules:       AST,
+  other-modules:       ANF,
+                       AST,
                        CPS,
                        Defunc,
                        Eval,
