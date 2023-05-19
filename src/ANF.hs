@@ -29,6 +29,14 @@ normalizeTerm t = normalize t return
 normalize :: (MonadFail m, Fresh m) => Term -> (AnfTerm -> m AnfTerm) -> m AnfTerm
 normalize (Var x) k = k (AAtom (AVar x))
 normalize (Lit i) k = k (AAtom (ALit i))
+normalize (Let b) k = do
+  ((p,u), t) <- unbind b
+  normalize (unembed u) $ \au -> do
+    case au of
+      AAtom a -> error "not yet supported" -- should substitute
+      AComp c -> do
+        t' <- normalize t k
+        return (ALet (bind (p, embed c) t'))
 normalize (Lam b) k = do
   (p, t) <- unbind b
   t' <- normalizeTerm  t
