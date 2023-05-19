@@ -134,6 +134,20 @@ data Val
 
 instance Alpha Val
 
+
+newtype AnfFunDefs = AFunDefs (Bind (Rec [(Name Term, Embed AnfTerm)]) AnfTerm)
+  deriving (Show, Generic, Typeable)
+
+unmakeAnfFunDefs :: Fresh m => AnfFunDefs -> m ([(Name Term, AnfTerm)], AnfTerm)
+unmakeAnfFunDefs (AFunDefs b) = do
+  (eqs, t) <- unbind b
+  return (map unwrap (unrec eqs), t)
+  where unwrap (x, u) = (x, unembed u)
+
+makeAnfFunDefs :: [(Name Term, AnfTerm)] -> AnfTerm -> AnfFunDefs
+makeAnfFunDefs eqs t = AFunDefs $ bind (rec (map wrap eqs)) t
+  where wrap (x, u) = (x, embed u)
+
 data AnfAtom
   = AVar (Name Term)
   | ALam (Bind Pattern AnfTerm)

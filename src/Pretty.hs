@@ -177,6 +177,6 @@ prettyEnv env =
 instance D.Pretty Val where
   pretty t = runLFreshM (prettyVal t)
 
-instance D.Pretty AnfTerm where
-  pretty = D.pretty . anfTermToTerm
+instance D.Pretty AnfFunDefs where
+  pretty = D.pretty . anfFunDefsToFunDefs
 

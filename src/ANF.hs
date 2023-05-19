@@ -8,8 +8,20 @@ import Unbound.Generics.LocallyNameless
 import Unbound.Generics.LocallyNameless.Unsafe
 import Safe (fromJustNote)
 
-anf :: Term -> AnfTerm
-anf = fromJustNote "anf conversion failed" . runFreshMT . normalizeTerm
+anf :: FunDefs -> AnfFunDefs
+anf = fromJustNote "anf conversion failed" . runFreshMT . normalizeFunDefs
+
+normalizeFunDefs :: (MonadFail m, Fresh m) => FunDefs -> m AnfFunDefs
+normalizeFunDefs fs = do
+  (defs, e) <- unmakeFunDefs fs
+  adefs <- mapM normalizeFunDef defs
+  ae <- normalizeTerm e
+  return (makeAnfFunDefs adefs ae)
+
+normalizeFunDef :: (MonadFail m, Fresh m) => (Name Term, Term) -> m (Name Term, AnfTerm)
+normalizeFunDef (f, e) = do
+  ae <- normalizeTerm e
+  return (f, ae)
 
 normalizeTerm :: (MonadFail m, Fresh m) => Term -> m AnfTerm
 normalizeTerm t = normalize t return
@@ -43,8 +55,8 @@ normalizeRules (r:rs) k =
 normalizeRule :: (MonadFail m, Fresh m) => Rule -> (AnfRule -> m AnfTerm) -> m AnfTerm
 normalizeRule (Rule b) k = do
   (p, t) <- unbind b
-  normalize t $ \at ->
-    k (ARule (bind p at))
+  at <- normalizeTerm t
+  k (ARule (bind p at))
 
 normalizeName :: (MonadFail m, Fresh m) => Term -> (AnfAtom -> m AnfTerm) -> m AnfTerm
 normalizeName t k = normalize t $ \case
@@ -61,6 +73,18 @@ normalizeNames (t:ts) k =
   normalizeName t $ \a ->
     normalizeNames ts $ \as ->
       k (a:as)
+
+unsafeUnmakeAnfFunDefs :: AnfFunDefs -> ([(Name Term, AnfTerm)], AnfTerm)
+unsafeUnmakeAnfFunDefs (AFunDefs b) = (map unwrap (unrec eqs), t)
+ where
+    (eqs, t) = unsafeUnbind b
+    unwrap (x, u) = (x, unembed u)
+
+anfFunDefsToFunDefs :: AnfFunDefs -> FunDefs
+anfFunDefsToFunDefs (unsafeUnmakeAnfFunDefs->(defs, t)) = makeFunDefs (map anfFunDefToFunDef defs) (anfTermToTerm t)
+
+anfFunDefToFunDef :: (Name Term, AnfTerm) -> (Name Term, Term)
+anfFunDefToFunDef (f, e) = (f, anfTermToTerm e)
 
 anfTermToTerm :: AnfTerm -> Term
 anfTermToTerm (ALet (unsafeUnbind->((p, c), t))) = Let (bind (p, embed (anfCompToTerm (unembed c))) (anfTermToTerm t))
